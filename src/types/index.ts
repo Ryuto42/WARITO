@@ -34,7 +34,7 @@ export interface TimetableTermSetting {
 export type TimetableSettingsRecord = Record<string, TimetableTermSetting>;
 
 export const PRESET_COLORS = [
-  { id: 'bg-[#1e293b] text-slate-200 border border-slate-700/50', display: 'bg-slate-600' }, // 灰色
+  { id: 'bg-[#1e293b] text-slate-200 border border-slate-700/50', display: 'bg-slate-600' },
   { id: 'bg-[#450a0a] text-red-200 border border-red-900/50', display: 'bg-red-800' },
   { id: 'bg-[#431407] text-orange-200 border border-orange-900/50', display: 'bg-orange-800' },
   { id: 'bg-[#451a03] text-amber-200 border border-amber-900/50', display: 'bg-amber-800' },
