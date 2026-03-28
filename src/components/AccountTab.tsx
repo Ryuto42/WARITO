@@ -29,6 +29,7 @@ const AccountTab: React.FC<AccountTabProps> = ({
   const [showClassList, setShowClassList] = useState(false);
   const [confirmDeleteState, setConfirmDeleteState] = useState({ isOpen: false, isClosing: false });
   const [timeSettingsExpanded, setTimeSettingsExpanded] = useState(false);
+  const [facultyColorsExpanded, setFacultyColorsExpanded] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
   
   const openConfirmDelete = () => setConfirmDeleteState({ isOpen: true, isClosing: false });
@@ -124,7 +125,7 @@ const AccountTab: React.FC<AccountTabProps> = ({
           </button>
           <button 
             onClick={openConfirmDelete} 
-            className="w-full bg-red-950/20 shadow-md border border-red-900/40 text-red-500 hover:text-red-400 font-bold p-3 rounded-xl transition-all"
+            className="w-full bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500/20 font-bold p-3 rounded-xl transition-all active:scale-95"
           >
             アカウントを削除する
           </button>
@@ -236,32 +237,45 @@ const AccountTab: React.FC<AccountTabProps> = ({
       </div>
 
       {uniqueFaculties.length > 0 && (
-        <div className="bg-[#111111] border border-gray-800 rounded-2xl p-6 mb-8 text-left shadow-xl">
-          <h3 className="text-lg font-bold text-white mb-4 border-b border-gray-800 pb-2">
-            開講元カラーの自動設定
-          </h3>
-          <p className="text-xs text-gray-400 mb-6 font-bold leading-relaxed">
-            同じ開講元の授業は自動的に同じシステムカラーになります。ここから開講元ごとに授業カラーを一括変更できます。
-          </p>
-          <div className="space-y-6">
-            {uniqueFaculties.map(faculty => (
-              <div key={faculty} className="flex flex-col gap-2">
-                <div className="text-xs sm:text-sm font-bold text-gray-200">{faculty}</div>
-                <div className="flex gap-2 sm:gap-3 overflow-x-auto pb-4 custom-scrollbar pt-2 px-1">
-                  {PRESET_COLORS.map(colorObj => (
-                    <button
-                      key={colorObj.id}
-                      onClick={() => {
-                        if (facultyColors[faculty] !== colorObj.id) {
-                          onUpdateFacultyColor(faculty, colorObj.id);
-                        }
-                      }}
-                      className={`shrink-0 w-8 h-8 rounded-full border-2 transition-transform duration-200 active:scale-90 ${facultyColors[faculty] === colorObj.id ? 'border-white scale-110 shadow-[0_0_10px_rgba(255,255,255,0.3)]' : 'border-transparent opacity-80'} ${colorObj.display}`}
-                    />
-                  ))}
+        <div className="bg-[#111111] border border-gray-800 rounded-2xl p-4 mb-8 shadow-xl">
+          <button 
+            onClick={() => setFacultyColorsExpanded(!facultyColorsExpanded)} 
+            className="w-full flex items-center justify-between text-sm font-bold text-gray-200 p-2 hover:text-white transition-colors"
+          >
+            <span>🎨 開講元カラーの自動設定 ({uniqueFaculties.length}件)</span>
+            <span className="text-gray-500">{facultyColorsExpanded ? '▲' : '▼'}</span>
+          </button>
+          
+          <div className={`transition-all duration-300 overflow-hidden ${facultyColorsExpanded ? 'max-h-[2000px] opacity-100 mt-4 px-2' : 'max-h-0 opacity-0'}`}>
+            <p className="text-xs text-gray-400 mb-6 font-bold leading-relaxed">
+              同じ開講元の授業は自動的に同じシステムカラーになります。ここから開講元ごとに授業カラーを一括変更できます。
+            </p>
+            <div className="space-y-6">
+              {uniqueFaculties.map(faculty => (
+                <div key={faculty} className="flex flex-col gap-2">
+                  <div className="text-xs sm:text-sm font-bold text-gray-200">{faculty}</div>
+                  <div className="flex gap-2 sm:gap-3 overflow-x-auto pb-4 custom-scrollbar pt-2 px-1">
+                    {PRESET_COLORS.map(colorObj => (
+                      <button
+                        key={colorObj.id}
+                        onClick={() => {
+                          if (facultyColors[faculty] !== colorObj.id) {
+                            onUpdateFacultyColor(faculty, colorObj.id);
+                          }
+                        }}
+                        className={`shrink-0 w-8 h-8 rounded-full border-2 transition-transform duration-200 active:scale-90 flex items-center justify-center ${facultyColors[faculty] === colorObj.id ? 'color-picker-active scale-110' : 'border-transparent opacity-80'} ${colorObj.display}`}
+                      >
+                        {facultyColors[faculty] === colorObj.id && (
+                          <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       )}
