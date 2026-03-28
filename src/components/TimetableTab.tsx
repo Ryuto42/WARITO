@@ -47,9 +47,9 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
   };
 
   const getPeriodMinHeight = () => {
-    if (setting.periodCount >= 7) return "min-h-[65px] sm:min-h-[75px]";
-    if (setting.periodCount === 6) return "min-h-[80px] sm:min-h-[95px]";
-    return "min-h-[105px] sm:min-h-[120px]";
+    if (setting.periodCount >= 7) return "min-h-[85px] sm:min-h-[75px]";
+    if (setting.periodCount === 6) return "min-h-[100px] sm:min-h-[95px]";
+    return "min-h-[125px] sm:min-h-[120px]";
   };
   const minHeightClass = getPeriodMinHeight();
 
@@ -109,7 +109,7 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
                 return (
                   <div 
                     key={`${day}-${period}`} 
-                    className={`flex-1 relative bg-[#06090D] border border-gray-900/40 rounded-xl ${minHeightClass} transition-colors hover:bg-gray-900/50 cursor-pointer overflow-hidden p-0 shadow-inner opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]`}
+                    className={`flex-1 relative bg-[#06090D] rounded-xl ${minHeightClass} transition-colors hover:bg-gray-900/50 cursor-pointer overflow-hidden p-0 shadow-inner opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]`}
                     style={{ animationDelay: `${(period - 1) * 50 + displayDays.indexOf(day) * 30}ms` }}
                     onClick={() => {}}
                   >
@@ -130,7 +130,7 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
                           </div>
                           {cls.room && (
                             <div className={`absolute bottom-1 left-1 right-1 flex justify-center pointer-events-none ${dayClasses.length > 1 ? 'hidden sm:flex' : 'flex'}`}>
-                              <div className={`${([cls.room, cls.class_format, cls.schedule].some(t => t && (t.includes('オンデマンド') || t.includes('オンデマ') || t.includes('ZOOM')))) ? 'bg-emerald-500/25 border-emerald-400/30' : 'bg-black/40 border-white/10'} px-1.5 sm:px-2 py-0.5 rounded-full inline-block border shadow-sm shrink-0 ${dayClasses.length > 1 ? 'text-[7px] sm:text-[9px]' : 'text-[8px] sm:text-[10px]'}`} style={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+                              <div className={`${([cls.room, cls.class_format, cls.schedule].some(t => t && (t.includes('オンデマンド') || t.includes('オンデマ') || t.includes('ZOOM')))) ? 'bg-emerald-500/25 border-emerald-400/30' : 'bg-black/40 border-white/10'} px-1.5 sm:px-2 py-0.5 rounded-full inline-block border shadow-sm shrink-0 ${dayClasses.length > 1 ? 'text-[7px] sm:text-[9px]' : 'text-[8px] sm:text-[10px]'} text-slate-200`}>
                                 {cls.room}
                               </div>
                             </div>
@@ -165,6 +165,17 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
           <div className={`bg-[#0f172a] border-t sm:border border-[#1e293b] rounded-t-[2rem] sm:rounded-3xl p-6 pb-28 sm:p-8 sm:pb-8 w-full max-w-md shadow-2xl ${isClosingTerm ? 'animate-slide-down' : 'animate-slide-up'}`} onClick={e => e.stopPropagation()}>
             <div className="flex justify-center mb-6 sm:hidden">
               <div className="w-12 h-1.5 bg-slate-700/50 rounded-full"></div>
+            </div>
+
+            <div className="mb-8 text-center bg-sky-500/10 border border-sky-500/20 py-4 rounded-2xl">
+              <div className="text-[10px] text-sky-400 font-bold tracking-widest mb-1 uppercase">Total Credits</div>
+              <div className="text-2xl font-black text-white">
+                {Array.from(new Set(Object.values(timetableData).flatMap(p => Object.values(p)).flat().map(c => c.id))).reduce((acc, id) => {
+                  const cls = Object.values(timetableData).flatMap(p => Object.values(p)).flat().find(c => c.id === id);
+                  return acc + (cls?.credits || 0);
+                }, 0)}
+                <span className="text-xs ml-1 text-slate-400 font-bold">単位</span>
+              </div>
             </div>
             
             <div className="mb-6">

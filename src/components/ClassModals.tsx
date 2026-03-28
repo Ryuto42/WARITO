@@ -306,8 +306,14 @@ export const ClassAddModal: React.FC<ClassAddModalProps> = ({ isOpen, isClosing,
                   key={colorObj.id} 
                   type="button" 
                   onClick={() => setInputColor(colorObj.id)} 
-                  className={['w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 transition-transform duration-200 active:scale-90', inputColor === colorObj.id ? 'border-white scale-110 shadow-[0_0_10px_rgba(255,255,255,0.3)]' : 'border-transparent opacity-80', colorObj.display].join(' ')} 
-                />
+                  className={['w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 transition-transform duration-200 active:scale-90 flex items-center justify-center', inputColor === colorObj.id ? 'color-picker-active scale-110' : 'border-transparent opacity-80', colorObj.display].join(' ')} 
+                >
+                  {inputColor === colorObj.id && (
+                    <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </button>
               ))}
             </div>
           </div>
@@ -403,15 +409,31 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
         
         {!editMode && (
           <div className="absolute top-4 left-6 flex gap-2">
-            <button onClick={() => { if(window.confirm('この授業を削除しますか？')) onDelete(cls.id || ''); }} className="text-[10px] sm:text-xs font-medium bg-red-950/40 border border-red-900/50 px-3 py-1.5 rounded-md text-red-400 hover:bg-red-900/50 hover:text-red-300 transition-all active:scale-95">削除する</button>
-            <button onClick={() => setEditMode(true)} className="text-[10px] sm:text-xs font-medium bg-[#1e293b] border border-[#334155] px-3 py-1.5 rounded-md text-slate-300 hover:text-white transition-all active:scale-95">編集する</button>
+            <button 
+              onClick={() => { if(window.confirm('この授業を削除しますか？')) onDelete(cls.id || ''); }} 
+              className="p-2 bg-red-500 hover:bg-red-400 text-white rounded-lg shadow-lg shadow-red-500/20 transition-all active:scale-95"
+              title="削除"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+            <button 
+              onClick={() => setEditMode(true)} 
+              className="p-2 bg-[#1e293b] border border-[#334155] text-white rounded-lg shadow-lg transition-all active:scale-95"
+              title="編集"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+            </button>
           </div>
         )}
 
         <div className="flex flex-col items-center mb-8 mt-6">
           <div className="flex flex-wrap gap-2 justify-center mb-4">
             {(cls.class_schedules && cls.class_schedules.length > 0 ? cls.class_schedules : [{ day: cls.day, period: cls.period }]).map((sch, i) => (
-              <div key={i} className={`inline-block px-3 py-1 sm:px-4 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold ${cls.color} text-white shadow-sm border border-white/10 tracking-widest`}>
+              <div key={i} className={`inline-block px-3 py-1 sm:px-4 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold ${cls.color} shadow-sm border border-white/10 tracking-widest`} style={{ color: '#ffffff' }}>
                 {dayMap[sch.day] || sch.day}曜日 {sch.period}限
               </div>
             ))}
@@ -511,7 +533,13 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
               <label className="block text-xs text-slate-400 mb-1 font-bold ml-1">テーマカラー</label>
               <div className="flex flex-wrap gap-3 mt-1 grid grid-cols-7">
                 {PRESET_COLORS.map(colorObj => (
-                  <button key={colorObj.id} type="button" onClick={() => setInputColor(colorObj.id)} className={['w-8 h-8 rounded-full border-2 transition-transform duration-200 active:scale-90', inputColor === colorObj.id ? 'border-white scale-110 shadow-[0_0_10px_rgba(255,255,255,0.3)]' : 'border-transparent opacity-80', colorObj.display].join(' ')} />
+                  <button key={colorObj.id} type="button" onClick={() => setInputColor(colorObj.id)} className={['w-8 h-8 rounded-full border-2 transition-transform duration-200 active:scale-90 flex items-center justify-center', inputColor === colorObj.id ? 'color-picker-active scale-110' : 'border-transparent opacity-80', colorObj.display].join(' ')} >
+                    {inputColor === colorObj.id && (
+                      <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </button>
                 ))}
               </div>
             </div>
