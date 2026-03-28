@@ -171,6 +171,11 @@ export const ClassAddModal: React.FC<ClassAddModalProps> = ({ isOpen, isClosing,
         const name = line.split('／')[0].trim();
         percentLines.push(`${name} (${pMatch[1]}%)`);
         foundPercent = true;
+
+        const colonMatch = line.match(/[:：]\s*(.+)$/);
+        if (colonMatch && colonMatch[1].trim()) {
+          detailLines.push(colonMatch[1].trim());
+        }
       } else if (line.trim() && foundPercent) {
         detailLines.push(line.trim());
       }
@@ -190,10 +195,9 @@ export const ClassAddModal: React.FC<ClassAddModalProps> = ({ isOpen, isClosing,
       const maybeUpdate = (key: keyof ClassInfo, value: any) => {
         if (!value) return;
         if (editedFields.has(key)) {
-           // Skip if user manually edited it, but note that we avoided an overwrite
-           if (prev[key] !== value) collisionMessage = true;
+          if (prev[key] !== value) collisionMessage = true;
         } else {
-           next[key] = value;
+          next[key] = value;
         }
       };
 

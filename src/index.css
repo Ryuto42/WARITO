@@ -80,7 +80,6 @@ html.theme-light .custom-scrollbar::-webkit-scrollbar-thumb {
   background: #cbd5e1;
 }
 
-/* ライトモード：年度学期ボタン */
 html.theme-light .term-btn {
   background-color: rgba(255, 255, 255, 0.95) !important;
   color: #0f172a !important;
@@ -90,12 +89,10 @@ html.theme-light .term-btn:hover {
   background-color: rgba(241, 245, 249, 0.95) !important;
 }
 
-/* ライトモード：モーダル上部のハンドルバー */
 html.theme-light .bg-slate-700\/50 {
   background-color: #cbd5e1 !important;
 }
 
-/* --- ライトモード用：各種UIカプセル・ボタンの背景色 --- */
 html.theme-light .bg-\[\#333333\] {
   background-color: #ffffff !important;
   border-color: #e2e8f0 !important;
@@ -113,18 +110,17 @@ html.theme-light .hover\:bg-gray-700:hover {
   background-color: #e2e8f0 !important;
 }
 
-/* --- ライトモード用：時間割コマ (class-card) の鮮やかなカラーマッピング --- */
-html.theme-light .class-card.bg-\[\#1e293b\] { background-color: #64748b !important; border-color: #94a3b8 !important; }
-html.theme-light .class-card.bg-\[\#450a0a\] { background-color: #ef4444 !important; border-color: #fca5a5 !important; }
-html.theme-light .class-card.bg-\[\#431407\] { background-color: #f97316 !important; border-color: #fdba74 !important; }
-html.theme-light .class-card.bg-\[\#451a03\] { background-color: #f59e0b !important; border-color: #fcd34d !important; }
-html.theme-light .class-card.bg-\[\#1a2e05\] { background-color: #84cc16 !important; border-color: #bef264 !important; }
-html.theme-light .class-card.bg-\[\#022c22\] { background-color: #10b981 !important; border-color: #6ee7b7 !important; }
-html.theme-light .class-card.bg-\[\#083344\] { background-color: #06b6d4 !important; border-color: #67e8f9 !important; }
-html.theme-light .class-card.bg-\[\#0c4a6e\] { background-color: #0ea5e9 !important; border-color: #7dd3fc !important; }
-html.theme-light .class-card.bg-\[\#172554\] { background-color: #3b82f6 !important; border-color: #93c5fd !important; }
-html.theme-light .class-card.bg-\[\#1e1b4b\] { background-color: #6366f1 !important; border-color: #a5b4fc !important; }
-html.theme-light .class-card.bg-\[\#2e1065\] { background-color: #8b5cf6 !important; border-color: #c4b5fd !important; }
-html.theme-light .class-card.bg-\[\#4a044e\] { background-color: #d946ef !important; border-color: #f0abfc !important; }
-html.theme-light .class-card.bg-\[\#4c0519\] { background-color: #f43f5e !important; border-color: #fda4af !important; }
-html.theme-light .class-card.bg-\[\#831843\] { background-color: #ec4899 !important; border-color: #f9a8d4 !important; }
+html.theme-light .class-card.bg-\[\#1e293b\] { background-color: #f1f5f9 !important; border-color: #e2e8f0 !important; }
+html.theme-light .class-card.bg-\[\#450a0a\] { background-color: #fee2e2 !important; border-color: #fecaca !important; }
+html.theme-light .class-card.bg-\[\#431407\] { background-color: #ffedd5 !important; border-color: #fed7aa !important; }
+html.theme-light .class-card.bg-\[\#451a03\] { background-color: #fef3c7 !important; border-color: #fde68a !important; }
+html.theme-light .class-card.bg-\[\#1a2e05\] { background-color: #ecfccb !important; border-color: #d9f99d !important; }
+html.theme-light .class-card.bg-\[\#022c22\] { background-color: #d1fae5 !important; border-color: #a7f3d0 !important; }
+html.theme-light .class-card.bg-\[\#083344\] { background-color: #cffafe !important; border-color: #a5f3fc !important; }
+html.theme-light .class-card.bg-\[\#0c4a6e\] { background-color: #e0f2fe !important; border-color: #bae6fd !important; }
+html.theme-light .class-card.bg-\[\#172554\] { background-color: #dbeafe !important; border-color: #bfdbfe !important; }
+html.theme-light .class-card.bg-\[\#1e1b4b\] { background-color: #e0e7ff !important; border-color: #c7d2fe !important; }
+html.theme-light .class-card.bg-\[\#2e1065\] { background-color: #ede9fe !important; border-color: #ddd6fe !important; }
+html.theme-light .class-card.bg-\[\#4a044e\] { background-color: #fae8ff !important; border-color: #f5d0fe !important; }
+html.theme-light .class-card.bg-\[\#4c0519\] { background-color: #ffe4e6 !important; border-color: #fecdd3 !important; }
+html.theme-light .class-card.bg-\[\#831843\] { background-color: #fce7f3 !important; border-color: #fbcfe8 !important; }
