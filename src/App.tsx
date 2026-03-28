@@ -351,13 +351,13 @@ const App = () => {
 
   if (!session) {
     return (
-      <div className="min-h-screen bg-[#050811] text-gray-200 flex flex-col items-center justify-center p-6">
+      <div className="min-h-[100dvh] bg-[#050811] text-gray-200 flex flex-col items-center justify-center p-6 sm:p-8">
         <style>{`
           @keyframes authFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
           .auth-fade-in { animation: authFadeIn 0.3s ease-out forwards; }
         `}</style>
-        <h1 className="text-4xl sm:text-5xl md:text-6xl font-black mb-3 tracking-[0.3em] pl-[0.3em] text-white leading-none drop-shadow-md pb-1">WARITO</h1>
-        <p className="text-slate-400 text-sm mb-10">大学時間割管理アプリ</p>
+        <h1 className="text-4xl sm:text-5xl md:text-6xl font-black mb-2 tracking-[0.3em] pl-[0.3em] text-white leading-none drop-shadow-md pb-1">WARITO</h1>
+        <p className="text-slate-400 text-[13px] sm:text-sm mb-10">大学時間割管理アプリ</p>
         <div className="bg-[#0f172a] border border-[#1e293b] rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden">
           <div className="flex border-b border-[#1e293b]">
             <button
@@ -411,7 +411,7 @@ const App = () => {
                   placeholder="example@university.ac.jp"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full p-3 bg-[#1e293b]/50 border border-[#1e293b] rounded-xl focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30 text-sm transition-all placeholder:text-slate-600"
+                  className="w-full p-3.5 bg-[#1e293b]/50 border border-[#1e293b] rounded-xl focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30 text-base transition-all placeholder:text-slate-600 appearance-none"
                   required
                   disabled={authLoading}
                 />
@@ -423,7 +423,7 @@ const App = () => {
                   placeholder={authMode === 'signup' ? '6文字以上で入力' : 'パスワードを入力'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full p-3 bg-[#1e293b]/50 border border-[#1e293b] rounded-xl focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30 text-sm transition-all placeholder:text-slate-600"
+                  className="w-full p-3.5 bg-[#1e293b]/50 border border-[#1e293b] rounded-xl focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30 text-base transition-all placeholder:text-slate-600 appearance-none"
                   required
                   disabled={authLoading}
                   minLength={authMode === 'signup' ? 6 : undefined}
@@ -493,7 +493,7 @@ const App = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#050811] text-gray-200 font-sans selection:bg-sky-500/30">
+    <div className="min-h-[100dvh] bg-[#050811] text-gray-200 font-sans selection:bg-sky-500/30 overflow-x-hidden">
       <style>{`
         ::-webkit-scrollbar { display: none; }
         * { -ms-overflow-style: none; scrollbar-width: none; }
