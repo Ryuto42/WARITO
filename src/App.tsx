@@ -74,11 +74,12 @@ const App = () => {
     const shareParam = params.get('share');
     if (shareParam) {
       try {
-        const binary = Uint8Array.from(atob(shareParam), c => c.charCodeAt(0));
+        const base64 = shareParam.replace(/-/g, '+').replace(/_/g, '/');
+        const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
+        const binary = Uint8Array.from(atob(padded), c => c.charCodeAt(0));
         const decompressed = pako.inflate(binary, { to: 'string' });
         const parsed = JSON.parse(decompressed);
         setShareImportData(parsed);
-        window.history.replaceState({}, '', window.location.pathname);
       } catch (e) {
         console.error('Failed to decode share data', e);
       }
@@ -460,6 +461,24 @@ const App = () => {
           </div>
         </div>
       </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <>
+        {(shareImportData || isClosingImport) && (
+          <div className={`fixed inset-0 bg-black/60 flex items-center justify-center z-[300] p-4 backdrop-blur-md ${isClosingImport ? 'animate-fade-out-overlay' : 'animate-fade-in-overlay'}`} onClick={dismissImport}>
+            <div className={`bg-[#0f172a] border border-[#1e293b] rounded-3xl p-8 w-full max-w-md shadow-2xl text-center ${isClosingImport ? 'animate-slide-down' : 'animate-slide-up'}`} onClick={e => e.stopPropagation()}>
+              <div className="text-4xl mb-4">📥</div>
+              <h2 className="text-xl font-bold text-white mb-3">時間割のインポート</h2>
+              <p className="text-slate-400 text-sm mb-2 font-bold">{shareImportData?.year}年度 {shareImportData?.semester}</p>
+              <p className="text-slate-500 text-xs mb-6">{shareImportData?.classes?.length || 0}件の授業データが共有されています。<br/>ログインまたは新規登録するとインポートできます。</p>
+              <button onClick={dismissImport} className="w-full py-3 bg-[#1e293b] hover:bg-[#334155] text-slate-300 rounded-xl font-bold transition-all active:scale-95 border border-[#1e293b]">閉じる</button>
+            </div>
+          </div>
+        )}
+      </>
     );
   }
 
