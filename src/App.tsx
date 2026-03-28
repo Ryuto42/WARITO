@@ -359,7 +359,6 @@ const App = () => {
         <h1 className="text-4xl sm:text-5xl md:text-6xl font-black mb-3 tracking-[0.3em] pl-[0.3em] text-white leading-none drop-shadow-md pb-1">WARITO</h1>
         <p className="text-slate-400 text-sm mb-10">大学時間割管理アプリ</p>
         <div className="bg-[#0f172a] border border-[#1e293b] rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden">
-          {/* タブ切り替え */}
           <div className="flex border-b border-[#1e293b]">
             <button
               type="button"
@@ -386,7 +385,6 @@ const App = () => {
           </div>
 
           <div className="p-8 auth-fade-in" key={authMode}>
-            {/* エラーメッセージ */}
             {authError && (
               <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-xs leading-relaxed auth-fade-in">
                 <div className="flex items-start gap-2">
@@ -396,7 +394,6 @@ const App = () => {
               </div>
             )}
 
-            {/* 成功メッセージ */}
             {authSuccess && (
               <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs leading-relaxed auth-fade-in">
                 <div className="flex items-start gap-2">
@@ -454,7 +451,6 @@ const App = () => {
               </button>
             </form>
 
-            {/* モード切り替えリンク */}
             <p className="text-center text-xs text-slate-500 mt-5">
               {authMode === 'signin' ? (
                 <>
