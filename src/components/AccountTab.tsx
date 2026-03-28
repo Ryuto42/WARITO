@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { dayMap, PRESET_COLORS } from '../types';
 import type { ClassInfo, TimetableTermSetting } from '../types';
-import pako from 'pako';
 
 
 interface AccountTabProps {
@@ -140,16 +139,53 @@ const AccountTab: React.FC<AccountTabProps> = ({
           現在の学期（{currentYear}年 {currentSemester}）の時間割をURLで共有できます。受け取った人はURLを開くだけで自動インポートできます。
         </p>
         <button
-          onClick={() => {
+          onClick={async () => {
             const termClasses = classes.filter(c => c.academic_year === currentYear && c.semester === currentSemester);
             if (termClasses.length === 0) { setShareUrl(''); return; }
-            const shareData = JSON.stringify({ year: currentYear, semester: currentSemester, classes: termClasses });
-            const compressed = pako.deflate(shareData);
-            const base64 = btoa(String.fromCharCode(...compressed))
-              .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-            const url = `${window.location.origin}${window.location.pathname}?share=${encodeURIComponent(base64)}`;
-            setShareUrl(url);
-            navigator.clipboard.writeText(url).catch(() => {});
+            
+            const compactClasses = termClasses.map(c => {
+              const colorIdx = PRESET_COLORS.findIndex(pc => pc.id === c.color);
+              const dayIdx = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(c.day);
+              
+              const obj: any = {
+                n: c.name,
+                d: dayIdx !== -1 ? dayIdx : c.day,
+                p: c.period,
+                r: c.room,
+                c: colorIdx !== -1 ? colorIdx : c.color,
+                y: c.academic_year,
+                sm: c.semester,
+              };
+              
+              if (c.faculty_dept) obj.f = c.faculty_dept;
+              if (c.instructor) obj.i = c.instructor;
+              if (c.class_format) obj.cf = c.class_format;
+              if (c.credits) obj.cr = c.credits;
+              if (c.evaluation) obj.e = c.evaluation;
+              if (c.schedule) obj.s = c.schedule;
+              if (c.memo) obj.m = c.memo;
+              if (c.class_schedules && c.class_schedules.length > 0) {
+                obj.ss = c.class_schedules.map(s => ({
+                  d: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(s.day),
+                  p: s.period,
+                  r: s.room
+                }));
+              }
+              return obj;
+            });
+
+            const shareData = { y: currentYear, sm: currentSemester, cs: compactClasses, v: 2 };
+            const { data, error } = await supabase
+              .from('shared_timetables')
+              .insert([{ data: shareData }])
+              .select()
+              .single();
+
+            if (!error && data) {
+              const url = `${window.location.origin}${window.location.pathname}?s=${data.id}`;
+              setShareUrl(url);
+              navigator.clipboard.writeText(url).catch(() => {});
+            }
           }}
           className="w-full bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-400 hover:text-sky-300 font-bold p-3 rounded-xl transition-all active:scale-95 text-sm tracking-wider"
         >

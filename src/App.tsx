@@ -72,14 +72,67 @@ const App = () => {
 
     const params = new URLSearchParams(window.location.search);
     const shareParam = params.get('share');
-    if (shareParam) {
+    const shortParam = params.get('s');
+
+    const expandData = (parsed: any) => {
+      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const expandedClasses = (parsed.cs || []).map((c: any) => {
+        const exp: any = {
+          name: c.n,
+          day: typeof c.d === 'number' ? days[c.d] : c.d,
+          period: c.p,
+          room: c.r,
+          color: typeof c.c === 'number' ? PRESET_COLORS[c.c]?.id || PRESET_COLORS[0].id : c.c,
+          academic_year: c.y,
+          semester: c.sm,
+          faculty_dept: c.f || '',
+          instructor: c.i || '',
+          class_format: c.cf || '',
+          credits: c.cr,
+          evaluation: c.e || '',
+          schedule: c.s || '',
+          memo: c.m || '',
+        };
+        if (c.ss) {
+          exp.class_schedules = c.ss.map((s: any) => ({
+            day: typeof s.d === 'number' ? days[s.d] : s.d,
+            period: s.p,
+            room: s.r
+          }));
+        }
+        return exp;
+      });
+      return {
+        year: parsed.y,
+        semester: parsed.sm,
+        classes: expandedClasses
+      };
+    };
+
+    if (shortParam) {
+      supabase
+        .from('shared_timetables')
+        .select('data')
+        .eq('id', shortParam)
+        .single()
+        .then(({ data, error }) => {
+          if (!error && data) {
+            setShareImportData(expandData(data.data));
+          }
+        });
+    } else if (shareParam) {
       try {
         const base64 = shareParam.replace(/-/g, '+').replace(/_/g, '/');
         const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
         const binary = Uint8Array.from(atob(padded), c => c.charCodeAt(0));
         const decompressed = pako.inflate(binary, { to: 'string' });
         const parsed = JSON.parse(decompressed);
-        setShareImportData(parsed);
+
+        if (parsed.v === 2 || parsed.cs) {
+          setShareImportData(expandData(parsed));
+        } else {
+          setShareImportData(parsed);
+        }
       } catch (e) {
         console.error('Failed to decode share data', e);
       }
