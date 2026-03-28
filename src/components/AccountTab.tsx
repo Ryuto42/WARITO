@@ -144,8 +144,9 @@ const AccountTab: React.FC<AccountTabProps> = ({
             if (termClasses.length === 0) { setShareUrl(''); return; }
             const shareData = JSON.stringify({ year: currentYear, semester: currentSemester, classes: termClasses });
             const compressed = pako.deflate(shareData);
-            const base64 = btoa(String.fromCharCode(...compressed));
-            const url = `${window.location.origin}${window.location.pathname}?share=${base64}`;
+            const base64 = btoa(String.fromCharCode(...compressed))
+              .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+            const url = `${window.location.origin}${window.location.pathname}?share=${encodeURIComponent(base64)}`;
             setShareUrl(url);
             navigator.clipboard.writeText(url).catch(() => {});
           }}
