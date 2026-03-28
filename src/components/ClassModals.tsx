@@ -39,20 +39,66 @@ const PieChart = ({ items }: { items: { name: string; percent: number }[] }) => 
   );
 };
 
+const CustomAlert = ({ isOpen, isClosing, message, onClose }: { isOpen: boolean; isClosing?: boolean; message: string; onClose: () => void }) => {
+  if (!isOpen && !isClosing) return null;
+  return (
+    <div className={`fixed inset-0 bg-black/50 flex items-center justify-center z-[200] p-4 backdrop-blur-sm ${isClosing ? 'animate-fade-out-overlay' : 'animate-fade-in-overlay'}`} onClick={onClose}>
+      <div className={`bg-[#0f172a] border border-[#1e293b] rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center ${isClosing ? 'animate-slide-down' : 'animate-slide-up'}`} onClick={e => e.stopPropagation()}>
+        <div className="text-sky-400 text-3xl mb-4">ℹ️</div>
+        <p className="text-white text-sm font-bold mb-6 whitespace-pre-wrap leading-relaxed">{message}</p>
+        <button onClick={onClose} className="w-full py-3 bg-sky-500 hover:bg-sky-400 text-slate-900 rounded-xl font-bold transition-all active:scale-95 shadow-lg shadow-sky-500/20">OK</button>
+      </div>
+    </div>
+  );
+};
+
 interface ClassAddModalProps {
   isOpen: boolean;
   isClosing: boolean;
   onClose: () => void;
   onSave: (payload: Partial<ClassInfo>) => void;
+  classes: ClassInfo[];
 }
 
-export const ClassAddModal: React.FC<ClassAddModalProps> = ({ isOpen, isClosing, onClose, onSave }) => {
+export const ClassAddModal: React.FC<ClassAddModalProps> = ({ isOpen, isClosing, onClose, onSave, classes }) => {
   const [syllabusText, setSyllabusText] = useState('');
   const [inputColor, setInputColor] = useState(PRESET_COLORS[0].id);
   const [parsedData, setParsedData] = useState<Partial<ClassInfo>>({});
+  const [editedFields, setEditedFields] = useState<Set<keyof ClassInfo>>(new Set());
+  const [alertState, setAlertState] = useState({ isOpen: false, isClosing: false, msg: '' });
+
+  const closeAlert = () => {
+    setAlertState(prev => ({ ...prev, isClosing: true }));
+    setTimeout(() => setAlertState({ isOpen: false, isClosing: false, msg: '' }), 200);
+  };
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSyllabusText('');
+      setParsedData({});
+      setEditedFields(new Set());
+      setInputColor(PRESET_COLORS[0].id);
+    }
+  }, [isOpen]);
+
+  const updateField = (key: keyof ClassInfo, value: any) => {
+    setParsedData(prev => ({...prev, [key]: value}));
+    setEditedFields(prev => new Set(prev).add(key));
+  };
+
+  const clearForm = () => {
+    setSyllabusText('');
+    setParsedData({});
+    setEditedFields(new Set());
+    setInputColor(PRESET_COLORS[0].id);
+  };
 
   const getFacultyColor = (facultyName: string) => {
     if (!facultyName) return PRESET_COLORS[0].id;
+    const existingClass = classes.find(c => c.faculty_dept === facultyName);
+    if (existingClass && existingClass.color) {
+      return existingClass.color;
+    }
     let hash = 0;
     for (let i = 0; i < facultyName.length; i++) {
       hash = facultyName.charCodeAt(i) + ((hash << 5) - hash);
@@ -110,38 +156,60 @@ export const ClassAddModal: React.FC<ClassAddModalProps> = ({ isOpen, isClosing,
     const parsedScheduleRaw = extract(/授業計画／Class schedule\s*([\s\S]*?)(?=課題等に対するフィードバック方法|備考|$)/);
     const parsedSchedule = parsedScheduleRaw.split('\n').filter(line => line.trim() !== '').join('\n');
 
-    if (parsedFacultyDept) {
+    let collisionMessage = false;
+
+    setParsedData(prev => {
+      const next = { ...prev };
+
+      const maybeUpdate = (key: keyof ClassInfo, value: any) => {
+        if (!value) return;
+        if (editedFields.has(key)) {
+           // Skip if user manually edited it, but note that we avoided an overwrite
+           if (prev[key] !== value) collisionMessage = true;
+        } else {
+           next[key] = value;
+        }
+      };
+
+      maybeUpdate('name', parsedName);
+      maybeUpdate('room', parsedRoom);
+      maybeUpdate('day', parsedDay);
+      maybeUpdate('period', parsedPeriod);
+      maybeUpdate('faculty_dept', parsedFacultyDept);
+      maybeUpdate('instructor', parsedInstructor);
+      maybeUpdate('semester', parsedSemester);
+      maybeUpdate('class_format', parsedClassFormat);
+      maybeUpdate('schedule', parsedSchedule);
+      maybeUpdate('credits', parsedCredits);
+      maybeUpdate('evaluation', parsedEvaluation);
+      maybeUpdate('updated_at', parsedUpdatedAt);
+      
+      return next;
+    });
+
+    if (parsedFacultyDept && !editedFields.has('faculty_dept')) {
       setInputColor(getFacultyColor(parsedFacultyDept));
     }
 
-    setParsedData(prev => ({
-      ...prev,
-      name: parsedName || prev.name,
-      room: parsedRoom || prev.room,
-      day: parsedDay || prev.day,
-      period: parsedPeriod || prev.period,
-      faculty_dept: parsedFacultyDept || prev.faculty_dept,
-      instructor: parsedInstructor || prev.instructor,
-      semester: parsedSemester || prev.semester,
-      class_format: parsedClassFormat || prev.class_format,
-      schedule: parsedSchedule || prev.schedule,
-      credits: parsedCredits || prev.credits,
-      evaluation: parsedEvaluation || prev.evaluation,
-      updated_at: parsedUpdatedAt || prev.updated_at,
-    }));
+    if (collisionMessage) {
+      setAlertState({ isOpen: true, isClosing: false, msg: "自動抽出を行いましたが、あなたが手動で編集した項目は保護（上書き防止）されました。" });
+    }
   };
 
   const handleSaveClick = () => {
     if (!parsedData.name) {
-      alert("授業名が入力・抽出されていません。");
+      setAlertState({ isOpen: true, isClosing: false, msg: "授業名が入力・抽出されていません。" });
       return;
     }
     onSave({ ...parsedData, color: inputColor });
+    clearForm();
   };
 
   if (!isOpen && !isClosing) return null;
 
   return (
+    <>
+    <CustomAlert isOpen={alertState.isOpen} isClosing={alertState.isClosing} message={alertState.msg} onClose={closeAlert} />
     <div className={`fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4 backdrop-blur-sm ${isClosing ? 'animate-fade-out-overlay' : 'animate-fade-in-overlay'}`}>
       <div className={`bg-[#0f172a] border border-[#1e293b] rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto ${isClosing ? 'animate-slide-down' : 'animate-slide-up'}`}>
         <h2 className="text-xl sm:text-2xl font-bold mb-6 text-white text-center tracking-wider">授業を追加</h2>
@@ -154,6 +222,9 @@ export const ClassAddModal: React.FC<ClassAddModalProps> = ({ isOpen, isClosing,
               placeholder="ここにシラバスのテキストを貼り付けると自動で抽出されます" 
               className="w-full bg-[#1e293b]/50 border border-[#1e293b] rounded-xl p-3 text-sm text-slate-300 focus:outline-none focus:border-sky-500 h-28 transition-colors custom-scrollbar" 
             />
+            <div className="mt-2 text-right">
+              <button onClick={clearForm} className="text-xs text-sky-400 hover:text-sky-300 font-bold px-3 py-1.5 rounded bg-sky-400/10">文字をクリア</button>
+            </div>
           </div>
           <div className="flex gap-4">
             <div className="flex-1">
@@ -161,21 +232,34 @@ export const ClassAddModal: React.FC<ClassAddModalProps> = ({ isOpen, isClosing,
               <input 
                 type="text" 
                 value={parsedData.name || ''} 
-                onChange={e => setParsedData({...parsedData, name: e.target.value})}
+                onChange={e => updateField('name', e.target.value)}
                 className="w-full bg-[#1e293b]/50 border border-[#1e293b] rounded-xl p-3 text-sm text-white font-bold focus:outline-none focus:border-sky-500"
                 placeholder="授業名"
               />
             </div>
             <div className="flex-1">
-              <label className="block text-xs text-slate-400 mb-2 font-bold ml-1">教室</label>
+              <label className="block text-xs text-slate-400 mb-2 font-bold ml-1">開講元</label>
               <input 
                 type="text" 
-                value={parsedData.room || ''} 
-                onChange={e => setParsedData({...parsedData, room: e.target.value})}
+                value={parsedData.faculty_dept || ''} 
+                onChange={e => {
+                  updateField('faculty_dept', e.target.value);
+                  setInputColor(getFacultyColor(e.target.value));
+                }}
                 className="w-full bg-[#1e293b]/50 border border-[#1e293b] rounded-xl p-3 text-sm text-white focus:outline-none focus:border-sky-500"
-                placeholder="教室"
+                placeholder="開講元"
               />
             </div>
+          </div>
+          <div>
+            <label className="block text-xs text-slate-400 mb-2 font-bold ml-1">メモ</label>
+            <input 
+              type="text" 
+              value={parsedData.memo || ''} 
+              onChange={e => updateField('memo', e.target.value)}
+              className="w-full bg-[#1e293b]/50 border border-[#1e293b] rounded-xl p-3 text-sm text-white focus:outline-none focus:border-sky-500"
+              placeholder="メモ"
+            />
           </div>
           <div>
             <label className="block text-xs text-slate-400 mb-2 ml-1 font-bold">授業の色設定</label>
@@ -197,6 +281,7 @@ export const ClassAddModal: React.FC<ClassAddModalProps> = ({ isOpen, isClosing,
         </div>
       </div>
     </div>
+    </>
   );
 };
 
@@ -244,6 +329,7 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
 
   const handleSaveClick = () => {
     onSave({
+      id: cls?.id,
       name: inputName,
       room: inputRoom,
       color: inputColor,
@@ -270,8 +356,9 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
       <div className={`bg-[#0f172a] border border-[#1e293b] rounded-2xl p-6 sm:p-8 w-full max-w-2xl shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar ${isClosing ? 'animate-slide-down' : 'animate-slide-up'}`} onClick={e => e.stopPropagation()}>
         <button onClick={onClose} className="absolute top-4 right-5 text-slate-500 hover:text-white text-xl p-1 transition-colors">✕</button>
         
+        
         {!editMode && (
-          <div className="absolute top-4 right-14 flex gap-2">
+          <div className="absolute top-4 left-6 flex gap-2">
             <button onClick={() => { if(window.confirm('この授業を削除しますか？')) onDelete(cls.id || ''); }} className="text-[10px] sm:text-xs font-medium bg-red-950/40 border border-red-900/50 px-3 py-1.5 rounded-md text-red-400 hover:bg-red-900/50 hover:text-red-300 transition-all active:scale-95">削除する</button>
             <button onClick={() => setEditMode(true)} className="text-[10px] sm:text-xs font-medium bg-[#1e293b] border border-[#334155] px-3 py-1.5 rounded-md text-slate-300 hover:text-white transition-all active:scale-95">編集する</button>
           </div>
@@ -358,7 +445,7 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
             </div>
 
             {cls.memo && (
-              <div className="bg-[#1e293b]/50 p-5 rounded-xl border border-[#1e293b] mb-4 shadow-sm">
+              <div className="bg-[#1e293b]/50 p-5 rounded-xl border border-[#1e293b] mb-4 shadow-sm h-fit">
                 <div className="text-[10px] sm:text-xs text-slate-400 font-bold mb-3 tracking-wider">メモ</div>
                 <pre className="text-sm text-slate-300 whitespace-pre-wrap font-sans leading-relaxed">{cls.memo}</pre>
               </div>

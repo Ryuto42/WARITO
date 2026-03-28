@@ -1,0 +1,16 @@
+{
+  "name": "WARITO",
+  "short_name": "WARITO",
+  "description": "大学時間割管理アプリ",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050811",
+  "theme_color": "#050811",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
