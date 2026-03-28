@@ -214,7 +214,7 @@ const App = () => {
     }
 
     if (finalPayload.id) {
-      const { id, ...updateData } = finalPayload;
+      const { id, faculty_dept, ...updateData } = finalPayload;
       const { error } = await supabase.from('classes').update(updateData).eq('id', finalPayload.id);
       if (!error) {
         fetchClasses(session.user.id);
@@ -299,12 +299,26 @@ const App = () => {
     let imported = 0;
     for (const item of items) {
       const { id, user_id, created_at, ...rest } = item;
+      
+      const existing = classes.find(c => 
+        c.name === rest.name && 
+        c.academic_year === rest.academic_year && 
+        c.semester === rest.semester
+      );
+
       const classPayload = {
         user_id: session.user.id,
         ...rest,
       };
-      const { error } = await supabase.from('classes').insert([classPayload]);
-      if (!error) imported++;
+
+      if (existing) {
+        const { faculty_dept, ...updateData } = classPayload;
+        const { error } = await supabase.from('classes').update(updateData).eq('id', existing.id);
+        if (!error) imported++;
+      } else {
+        const { error } = await supabase.from('classes').insert([classPayload]);
+        if (!error) imported++;
+      }
     }
     fetchClasses(session.user.id);
     if (shareImportData.year) setCurrentYear(shareImportData.year);
