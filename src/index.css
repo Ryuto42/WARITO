@@ -1,3 +1,130 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.theme-transition * {
+  transition-property: background-color, border-color, color, fill, stroke !important;
+  transition-duration: 300ms !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+html.theme-light body, html.theme-light .bg-\[\#050811\] {
+  background-color: #f8fafc !important;
+}
+
+html.theme-light .bg-\[\#0f172a\], html.theme-light .bg-\[\#111111\], html.theme-light .bg-gray-900 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1) !important;
+}
+
+html.theme-light .bg-\[\#06090D\] {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.theme-light .bg-\[\#1e293b\]\/50 {
+  background-color: rgba(241, 245, 249, 0.8) !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.theme-light .bg-\[\#1e293b\] {
+  background-color: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+html.theme-light .text-white, html.theme-light .text-gray-200, html.theme-light .text-gray-300 {
+  color: #0f172a !important;
+}
+
+html.theme-light .text-gray-400, html.theme-light .text-slate-400, html.theme-light .text-slate-300, html.theme-light .text-gray-500 {
+  color: #475569 !important;
+}
+
+html.theme-light .border-\[\#1e293b\], html.theme-light .border-gray-800, html.theme-light .border-gray-900\/40, html.theme-light .border-white\/10 {
+  border-color: #e2e8f0 !important;
+}
+
+html.theme-light .bg-black\/30, html.theme-light .bg-black\/40, html.theme-light .bg-black\/70, html.theme-light .bg-black\/80 {
+  background-color: rgba(0, 0, 0, 0.4) !important;
+}
+
+html.theme-light .text-slate-500 {
+  color: #64748b !important;
+}
+
+html.theme-light .bg-slate-900 {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+html.theme-light .bg-\[\#1A1A1A\] {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 10px;
+}
+html.theme-light .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
+
+/* ライトモード：年度学期ボタン */
+html.theme-light .term-btn {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+html.theme-light .term-btn:hover {
+  background-color: rgba(241, 245, 249, 0.95) !important;
+}
+
+/* ライトモード：モーダル上部のハンドルバー */
+html.theme-light .bg-slate-700\/50 {
+  background-color: #cbd5e1 !important;
+}
+
+/* --- ライトモード用：各種UIカプセル・ボタンの背景色 --- */
+html.theme-light .bg-\[\#333333\] {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1) !important;
+}
+html.theme-light .bg-\[\#222222\] {
+  background-color: #f1f5f9 !important;
+}
+html.theme-light .bg-gray-800 {
+  background-color: #f1f5f9 !important;
+  color: #64748b !important;
+  border-color: #e2e8f0 !important;
+}
+html.theme-light .hover\:bg-gray-700:hover {
+  background-color: #e2e8f0 !important;
+}
+
+/* --- ライトモード用：時間割コマ (class-card) の鮮やかなカラーマッピング --- */
+html.theme-light .class-card.bg-\[\#1e293b\] { background-color: #64748b !important; border-color: #94a3b8 !important; }
+html.theme-light .class-card.bg-\[\#450a0a\] { background-color: #ef4444 !important; border-color: #fca5a5 !important; }
+html.theme-light .class-card.bg-\[\#431407\] { background-color: #f97316 !important; border-color: #fdba74 !important; }
+html.theme-light .class-card.bg-\[\#451a03\] { background-color: #f59e0b !important; border-color: #fcd34d !important; }
+html.theme-light .class-card.bg-\[\#1a2e05\] { background-color: #84cc16 !important; border-color: #bef264 !important; }
+html.theme-light .class-card.bg-\[\#022c22\] { background-color: #10b981 !important; border-color: #6ee7b7 !important; }
+html.theme-light .class-card.bg-\[\#083344\] { background-color: #06b6d4 !important; border-color: #67e8f9 !important; }
+html.theme-light .class-card.bg-\[\#0c4a6e\] { background-color: #0ea5e9 !important; border-color: #7dd3fc !important; }
+html.theme-light .class-card.bg-\[\#172554\] { background-color: #3b82f6 !important; border-color: #93c5fd !important; }
+html.theme-light .class-card.bg-\[\#1e1b4b\] { background-color: #6366f1 !important; border-color: #a5b4fc !important; }
+html.theme-light .class-card.bg-\[\#2e1065\] { background-color: #8b5cf6 !important; border-color: #c4b5fd !important; }
+html.theme-light .class-card.bg-\[\#4a044e\] { background-color: #d946ef !important; border-color: #f0abfc !important; }
+html.theme-light .class-card.bg-\[\#4c0519\] { background-color: #f43f5e !important; border-color: #fda4af !important; }
+html.theme-light .class-card.bg-\[\#831843\] { background-color: #ec4899 !important; border-color: #f9a8d4 !important; }

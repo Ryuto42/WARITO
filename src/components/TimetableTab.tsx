@@ -37,7 +37,6 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
     { label: '通年', value: '通年' },
   ];
 
-  // これまでの学期の値から適切に選択肢にマッピングするヘルパー
   const getSelectedSemesterValue = (sem: string) => {
     if (sem.includes('春') || sem.includes('1') || sem.includes('前')) return '春学期';
     if (sem.includes('秋') || sem.includes('2') || sem.includes('後')) return '秋学期';
@@ -46,6 +45,13 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
     if (sem.includes('通年')) return '通年';
     return '春学期';
   };
+
+  const getPeriodMinHeight = () => {
+    if (setting.periodCount >= 7) return "min-h-[65px] sm:min-h-[75px]";
+    if (setting.periodCount === 6) return "min-h-[80px] sm:min-h-[95px]";
+    return "min-h-[105px] sm:min-h-[120px]";
+  };
+  const minHeightClass = getPeriodMinHeight();
 
   const handleOpenTermModal = () => {
     setModalYear(currentYear);
@@ -88,7 +94,7 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
         <div className="flex flex-col gap-1 sm:gap-2">
           {periods.map(period => (
             <div key={`period-${period}`} className="flex gap-1 sm:gap-2">
-              <div className="w-8 sm:w-14 flex-none rounded-xl flex flex-col items-center justify-center p-0.5 sm:p-2 sticky left-0 z-10 h-full min-h-[90px] sm:min-h-[120px]">
+              <div className={`w-8 sm:w-14 flex-none rounded-xl flex flex-col items-center justify-center p-0.5 sm:p-2 sticky left-0 z-10 h-full ${minHeightClass}`}>
                 {setting.periodTimes[period]?.start && (
                   <span className="text-[7px] sm:text-[9px] text-slate-600 font-bold mb-1 opacity-70 tracking-tighter">{setting.periodTimes[period].start}</span>
                 )}
@@ -103,32 +109,33 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
                 return (
                   <div 
                     key={`${day}-${period}`} 
-                    className={`flex-1 relative bg-[#06090D] border border-gray-900/40 rounded-xl min-h-[90px] sm:min-h-[120px] transition-colors hover:bg-gray-900/50 cursor-pointer overflow-hidden p-1 shadow-inner opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]`}
+                    className={`flex-1 relative bg-[#06090D] border border-gray-900/40 rounded-xl ${minHeightClass} transition-colors hover:bg-gray-900/50 cursor-pointer overflow-hidden p-0 shadow-inner opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]`}
                     style={{ animationDelay: `${(period - 1) * 50 + displayDays.indexOf(day) * 30}ms` }}
                     onClick={() => {}}
                   >
-                    {dayClasses.map((cls, idx) => (
-                      <div 
-                        key={cls.id} 
-                        onClick={(e) => { e.stopPropagation(); onClassClick(cls); }} 
-                        className={`absolute inset-0 p-1 sm:p-3 rounded-xl transition-all duration-200 shadow-md ${cls.color} ${idx > 0 ? 'mt-2 ml-2 shadow-xl z-20 border border-white/10' : 'z-10'} flex flex-col justify-center items-center text-center opacity-0 animate-[slideUp_0.4s_cubic-bezier(0.16,1,0.3,1)_forwards]`}
-                        style={{ 
-                          animationDelay: `${(period - 1) * 50 + displayDays.indexOf(day) * 30 + 150}ms`,
-                          ...(idx > 0 ? { top: `${idx * 16}px`, left: `${idx * 8}px` } : {})
-                        }}
-                      >
-                      <div className="w-full flex flex-col items-center justify-center space-y-1 sm:space-y-2">
-                        <div className="text-[9px] sm:text-xs font-bold leading-tight drop-shadow-md">
-                          {cls.name}
-                        </div>
-                        {cls.room && (
-                          <div className="text-[7px] sm:text-[9px] bg-black/40 text-white/90 px-1.5 sm:px-2 py-0.5 rounded-full inline-block border border-white/10 shadow-sm shrink-0">
-                            {cls.room}
+                    <div className="absolute inset-0 flex flex-col sm:flex-row">
+                      {dayClasses.map((cls, idx) => (
+                        <div 
+                          key={cls.id} 
+                          onClick={(e) => { e.stopPropagation(); onClassClick(cls); }} 
+                          className={`flex-1 relative p-1 sm:p-2 transition-all duration-200 shadow-md ${cls.color} ${idx > 0 ? 'border-t border-white/20 sm:border-t-0 sm:border-l' : ''} z-10 flex flex-col justify-center items-center text-center opacity-0 animate-[slideUp_0.4s_cubic-bezier(0.16,1,0.3,1)_forwards] class-card`}
+                          style={{ 
+                            animationDelay: `${(period - 1) * 50 + displayDays.indexOf(day) * 30 + 150}ms`
+                          }}
+                        >
+                        <div className="w-full flex flex-col items-center justify-center space-y-1 sm:space-y-2">
+                          <div className={`font-bold leading-tight drop-shadow-md ${dayClasses.length > 1 ? 'text-[8px] sm:text-[10px]' : 'text-[9px] sm:text-xs'}`} style={{ color: '#ffffff' }}>
+                            {cls.name}
                           </div>
-                        )}
-                      </div>
-                      </div>
-                    ))}
+                          {cls.room && (
+                            <div className={`bg-black/40 px-1.5 sm:px-2 py-0.5 rounded-full inline-block border border-white/10 shadow-sm shrink-0 ${dayClasses.length > 1 ? 'text-[6px] sm:text-[8px]' : 'text-[7px] sm:text-[9px]'}`} style={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+                              {cls.room}
+                            </div>
+                          )}
+                        </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 );
               })}
@@ -137,10 +144,10 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
         </div>
       </div>
 
-      <div className="fixed bottom-28 left-1/2 -translate-x-1/2 z-40">
+      <div className="fixed bottom-32 sm:bottom-36 left-1/2 -translate-x-1/2 z-[50]">
         <button 
           onClick={handleOpenTermModal}
-          className="bg-[#111111]/80 backdrop-blur-md border border-gray-800 rounded-full px-6 py-3 shadow-2xl text-gray-200 text-xs sm:text-sm font-bold tracking-widest hover:bg-[#222222]/90 active:scale-95 transition-all flex items-center gap-2"
+          className="term-btn bg-black/30 backdrop-blur-md border border-white/10 rounded-full px-6 py-2.5 sm:py-3 shadow-lg text-white text-[10px] sm:text-xs font-bold tracking-widest hover:bg-black/50 active:scale-95 transition-all flex items-center gap-2"
         >
           <span>{currentYear}年度</span>
           <span className="text-sky-400 mx-1">|</span>
@@ -152,8 +159,8 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
       </div>
 
       {(isTermModalOpen || isClosingTerm) && (
-        <div className={`fixed inset-0 bg-black/80 flex items-end sm:items-center justify-center z-[70] sm:p-4 backdrop-blur-sm ${isClosingTerm ? 'animate-fade-out-overlay' : 'animate-fade-in-overlay'}`} onClick={handleCloseTermModal}>
-          <div className={`bg-[#0f172a] border-t sm:border border-[#1e293b] rounded-t-[2rem] sm:rounded-3xl p-6 sm:p-8 w-full max-w-md shadow-2xl ${isClosingTerm ? 'animate-slide-down' : 'animate-slide-up'}`} onClick={e => e.stopPropagation()}>
+        <div className={`fixed inset-0 bg-black/80 flex items-end sm:items-center justify-center z-[100] sm:p-4 backdrop-blur-sm ${isClosingTerm ? 'animate-fade-out-overlay' : 'animate-fade-in-overlay'}`} onClick={handleCloseTermModal}>
+          <div className={`bg-[#0f172a] border-t sm:border border-[#1e293b] rounded-t-[2rem] sm:rounded-3xl p-6 pb-28 sm:p-8 sm:pb-8 w-full max-w-md shadow-2xl ${isClosingTerm ? 'animate-slide-down' : 'animate-slide-up'}`} onClick={e => e.stopPropagation()}>
             <div className="flex justify-center mb-6 sm:hidden">
               <div className="w-12 h-1.5 bg-slate-700/50 rounded-full"></div>
             </div>
@@ -166,7 +173,7 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
                   onChange={e => setModalYear(Number(e.target.value))}
                   className="w-full bg-[#1e293b]/50 border border-[#334155]/50 rounded-xl p-3.5 text-white font-bold focus:outline-none focus:border-sky-500 appearance-none cursor-pointer"
                 >
-                  {[currentYear - 2, currentYear - 1, currentYear, currentYear + 1, currentYear + 2].sort().map(y => (
+                  {[2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030].map(y => (
                     <option key={y} value={y} className="bg-slate-900">{y}</option>
                   ))}
                 </select>
@@ -195,7 +202,7 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
                       <div className="w-5 h-5 rounded-full border-2 border-slate-500 peer-checked:border-blue-500 peer-checked:bg-blue-500 transition-colors"></div>
                       <div className="absolute w-2 h-2 bg-white rounded-full opacity-0 peer-checked:opacity-100 transition-opacity"></div>
                     </div>
-                    <span className="text-slate-300 text-sm font-medium group-hover:text-white transition-colors">
+                    <span className="text-slate-300 text-sm font-medium transition-colors">
                       {option.label}
                     </span>
                   </label>

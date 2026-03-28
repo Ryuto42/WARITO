@@ -13,6 +13,10 @@ const App = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(true);
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [authSuccess, setAuthSuccess] = useState('');
 
   const [classes, setClasses] = useState<ClassInfo[]>([]);
   const [activeTab, setActiveTab] = useState<'timetable' | 'account'>('timetable');
@@ -25,6 +29,14 @@ const App = () => {
   const [currentSemester, setCurrentSemester] = useState<string>('春学期');
 
   const [timetableSettings, setTimetableSettings] = useState<TimetableSettingsRecord>({});
+  
+  const [globalAlert, setGlobalAlert] = useState({ isOpen: false, isClosing: false, msg: '' });
+
+  const showAppAlert = (msg: string) => setGlobalAlert({ isOpen: true, isClosing: false, msg });
+  const closeAppAlert = () => {
+    setGlobalAlert(prev => ({ ...prev, isClosing: true }));
+    setTimeout(() => setGlobalAlert({ isOpen: false, isClosing: false, msg: '' }), 200);
+  };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -33,7 +45,7 @@ const App = () => {
       setLoading(false);
     });
 
-    supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session) fetchClasses(session.user.id);
     });
@@ -46,6 +58,8 @@ const App = () => {
         console.error('Failed to parse settings');
       }
     }
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const updateTimetableSetting = (setting: TimetableTermSetting) => {
@@ -65,18 +79,82 @@ const App = () => {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    await supabase.auth.signUp({ email, password });
-    alert('登録メールを確認してください');
+    setAuthError('');
+    setAuthSuccess('');
+    setAuthLoading(true);
+
+    if (password.length < 6) {
+      setAuthError('パスワードは6文字以上で入力してください');
+      setAuthLoading(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: window.location.origin,
+        },
+      });
+
+      if (error) {
+        if (error.message.includes('already registered')) {
+          setAuthError('このメールアドレスは既に登録されています。ログインしてください。');
+        } else if (error.message.includes('valid email')) {
+          setAuthError('有効なメールアドレスを入力してください。');
+        } else if (error.message.includes('rate limit')) {
+          setAuthError('リクエストが多すぎます。しばらく待ってから再試行してください。');
+        } else {
+          setAuthError(`登録エラー: ${error.message}`);
+        }
+      } else if (data?.user?.identities?.length === 0) {
+        setAuthError('このメールアドレスは既に登録されています。ログインしてください。');
+      } else {
+        setAuthSuccess('確認メールを送信しました！メールのリンクをクリックして登録を完了してください。');
+        setEmail('');
+        setPassword('');
+      }
+    } catch (err) {
+      setAuthError('予期しないエラーが発生しました。もう一度お試しください。');
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    await supabase.auth.signInWithPassword({ email, password });
+    setAuthError('');
+    setAuthSuccess('');
+    setAuthLoading(true);
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        if (error.message.includes('Invalid login credentials')) {
+          setAuthError('メールアドレスまたはパスワードが正しくありません。');
+        } else if (error.message.includes('Email not confirmed')) {
+          setAuthError('メールアドレスが確認されていません。受信トレイを確認してください。');
+        } else {
+          setAuthError(`ログインエラー: ${error.message}`);
+        }
+      }
+    } catch (err) {
+      setAuthError('予期しないエラーが発生しました。もう一度お試しください。');
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     setClasses([]);
+  };
+
+  const switchAuthMode = (mode: 'signin' | 'signup') => {
+    setAuthMode(mode);
+    setAuthError('');
+    setAuthSuccess('');
   };
 
   const timetableData: { [day: string]: { [period: number]: ClassInfo[] } } = {};
@@ -87,18 +165,36 @@ const App = () => {
   });
 
   const handleSaveClass = async (payload: Partial<ClassInfo>) => {
-    if (payload.id) {
-      const { error } = await supabase.from('classes').update(payload).eq('id', payload.id);
+    let finalPayload = { ...payload };
+
+    if (!finalPayload.id && finalPayload.name) {
+      const { data: existing } = await supabase.from('classes')
+        .select('id')
+        .eq('user_id', session.user.id)
+        .eq('academic_year', currentYear)
+        .eq('semester', currentSemester)
+        .eq('name', finalPayload.name)
+        .limit(1);
+
+      if (existing && existing.length > 0) {
+        finalPayload.id = existing[0].id;
+      }
+    }
+
+    if (finalPayload.id) {
+      const { id, ...updateData } = finalPayload;
+      const { error } = await supabase.from('classes').update(updateData).eq('id', finalPayload.id);
       if (!error) {
         fetchClasses(session.user.id);
-        if (selectedClass && selectedClass.id === payload.id) {
-          setSelectedClass({ ...selectedClass, ...payload } as ClassInfo);
+        if (selectedClass && selectedClass.id === finalPayload.id) {
+          setSelectedClass({ ...selectedClass, ...finalPayload } as ClassInfo);
         }
+        closeAddModalWithAnim();
       } else {
         console.error(error);
-        alert('エラーが発生しました');
+        showAppAlert('エラーが発生しました');
       }
-  } else {
+    } else {
       const classPayload = {
         user_id: session.user.id,
         semester: currentSemester,
@@ -107,7 +203,7 @@ const App = () => {
         room: '',
         day: 'Mon',
         period: 1,
-        ...payload
+        ...finalPayload
       };
       const { error } = await supabase.from('classes').insert([classPayload]);
       if (!error) {
@@ -115,7 +211,7 @@ const App = () => {
         setIsAddModalOpen(false);
       } else {
         console.error(error);
-        alert('追加時にエラーが発生しました');
+        showAppAlert('追加時にエラーが発生しました');
       }
     }
   };
@@ -153,7 +249,7 @@ const App = () => {
       fetchClasses(session.user.id);
     } else {
       console.error(error);
-      alert('カラーの更新に失敗しました');
+      showAppAlert('カラーの更新に失敗しました');
     }
   };
 
@@ -170,19 +266,127 @@ const App = () => {
   if (!session) {
     return (
       <div className="min-h-screen bg-[#050811] text-gray-200 flex flex-col items-center justify-center p-6">
-        <h1 className="text-4xl sm:text-5xl md:text-6xl font-black mb-12 tracking-[0.3em] text-white leading-none drop-shadow-md pb-1">WARITO</h1>
-        <div className="bg-[#0f172a] border border-[#1e293b] p-8 rounded-3xl w-full max-w-sm shadow-2xl">
-          <form onSubmit={handleSignUp} className="mb-6">
-            <h2 className="text-xl font-bold mb-4 text-white text-center">新規登録</h2>
-            <input type="email" placeholder="メールアドレス" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full mb-3 p-3 bg-[#1e293b]/50 border border-[#1e293b] rounded-xl focus:outline-none focus:border-sky-500 text-sm" required />
-            <input type="password" placeholder="パスワード" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full mb-4 p-3 bg-[#1e293b]/50 border border-[#1e293b] rounded-xl focus:outline-none focus:border-sky-500 text-sm" required />
-            <button type="submit" className="w-full bg-sky-500 hover:bg-sky-400 text-slate-900 font-bold p-3 rounded-xl transition-all active:scale-95 shadow-lg shadow-sky-500/20">アカウント作成</button>
-          </form>
-          <hr className="border-[#1e293b] mb-6" />
-          <form onSubmit={handleSignIn}>
-            <h2 className="text-xl font-bold mb-4 text-white text-center">ログイン</h2>
-            <button type="submit" className="w-full bg-[#1e293b] hover:bg-[#334155] text-slate-300 font-bold p-3 rounded-xl transition-all active:scale-95 border border-[#1e293b]">既存のアカウントでログイン</button>
-          </form>
+        <style>{`
+          @keyframes authFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+          .auth-fade-in { animation: authFadeIn 0.3s ease-out forwards; }
+        `}</style>
+        <h1 className="text-4xl sm:text-5xl md:text-6xl font-black mb-3 tracking-[0.3em] pl-[0.3em] text-white leading-none drop-shadow-md pb-1">WARITO</h1>
+        <p className="text-slate-400 text-sm mb-10">大学時間割管理アプリ</p>
+        <div className="bg-[#0f172a] border border-[#1e293b] rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden">
+          {/* タブ切り替え */}
+          <div className="flex border-b border-[#1e293b]">
+            <button
+              type="button"
+              onClick={() => switchAuthMode('signin')}
+              className={`flex-1 py-4 text-sm font-bold transition-all ${
+                authMode === 'signin'
+                  ? 'text-sky-400 border-b-2 border-sky-400 bg-sky-400/5'
+                  : 'text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              ログイン
+            </button>
+            <button
+              type="button"
+              onClick={() => switchAuthMode('signup')}
+              className={`flex-1 py-4 text-sm font-bold transition-all ${
+                authMode === 'signup'
+                  ? 'text-sky-400 border-b-2 border-sky-400 bg-sky-400/5'
+                  : 'text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              新規登録
+            </button>
+          </div>
+
+          <div className="p-8 auth-fade-in" key={authMode}>
+            {/* エラーメッセージ */}
+            {authError && (
+              <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-xs leading-relaxed auth-fade-in">
+                <div className="flex items-start gap-2">
+                  <span className="text-red-400 mt-0.5 shrink-0">⚠</span>
+                  <span>{authError}</span>
+                </div>
+              </div>
+            )}
+
+            {/* 成功メッセージ */}
+            {authSuccess && (
+              <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs leading-relaxed auth-fade-in">
+                <div className="flex items-start gap-2">
+                  <span className="text-emerald-400 mt-0.5 shrink-0">✓</span>
+                  <span>{authSuccess}</span>
+                </div>
+              </div>
+            )}
+
+            <form onSubmit={authMode === 'signup' ? handleSignUp : handleSignIn}>
+              <div className="mb-3">
+                <label className="block text-xs text-slate-400 mb-1.5 ml-1">メールアドレス</label>
+                <input
+                  type="email"
+                  placeholder="example@university.ac.jp"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full p-3 bg-[#1e293b]/50 border border-[#1e293b] rounded-xl focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30 text-sm transition-all placeholder:text-slate-600"
+                  required
+                  disabled={authLoading}
+                />
+              </div>
+              <div className="mb-1">
+                <label className="block text-xs text-slate-400 mb-1.5 ml-1">パスワード</label>
+                <input
+                  type="password"
+                  placeholder={authMode === 'signup' ? '6文字以上で入力' : 'パスワードを入力'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full p-3 bg-[#1e293b]/50 border border-[#1e293b] rounded-xl focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30 text-sm transition-all placeholder:text-slate-600"
+                  required
+                  disabled={authLoading}
+                  minLength={authMode === 'signup' ? 6 : undefined}
+                />
+              </div>
+
+              <p className={`text-[11px] mb-4 ml-1 ${authMode === 'signup' ? 'text-slate-500' : 'text-transparent select-none'}`}>
+                パスワードは6文字以上で設定してください
+              </p>
+
+              <button
+                type="submit"
+                disabled={authLoading}
+                className="w-full font-bold p-3 rounded-xl transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed bg-gradient-to-r from-sky-500 to-blue-500 hover:from-sky-400 hover:to-blue-400 text-white shadow-lg shadow-sky-500/20"
+              >
+                {authLoading ? (
+                  <span className="inline-flex items-center gap-2">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    処理中...
+                  </span>
+                ) : authMode === 'signup' ? 'アカウントを作成' : 'ログイン'}
+              </button>
+            </form>
+
+            {/* モード切り替えリンク */}
+            <p className="text-center text-xs text-slate-500 mt-5">
+              {authMode === 'signin' ? (
+                <>
+                  アカウントをお持ちでない方は{' '}
+                  <button type="button" onClick={() => switchAuthMode('signup')} className="text-sky-400 hover:text-sky-300 hover:underline transition-colors">
+                    新規登録
+                  </button>
+                </>
+              ) : (
+                <>
+                  既にアカウントをお持ちの方は{' '}
+                  <button type="button" onClick={() => switchAuthMode('signin')} className="text-sky-400 hover:text-sky-300 hover:underline transition-colors">
+                    ログイン
+                  </button>
+                </>
+              )}
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -210,7 +414,7 @@ const App = () => {
       
       <div className="max-w-6xl mx-auto relative relative pb-0">
         <header className="flex justify-center items-center py-4 sm:py-6 px-2">
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-[0.2em] sm:tracking-[0.3em] text-white leading-none drop-shadow-md pt-2">WARITO</h1>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-[0.2em] sm:tracking-[0.3em] pl-[0.2em] sm:pl-[0.3em] text-white leading-none drop-shadow-md pt-2">WARITO</h1>
         </header>
 
         {activeTab === 'timetable' && (
@@ -242,6 +446,7 @@ const App = () => {
           isClosing={isClosingAdd}
           onClose={closeAddModalWithAnim}
           onSave={handleSaveClass}
+          classes={classes}
         />
 
         <ClassDetailModal 
@@ -257,6 +462,16 @@ const App = () => {
           setActiveTab={setActiveTab} 
           onAddClick={() => setIsAddModalOpen(true)}
         />
+        
+        {(globalAlert.isOpen || globalAlert.isClosing) && (
+          <div className={`fixed inset-0 bg-black/50 flex items-center justify-center z-[200] p-4 backdrop-blur-sm ${globalAlert.isClosing ? 'animate-fade-out-overlay' : 'animate-fade-in-overlay'}`} onClick={closeAppAlert}>
+            <div className={`bg-[#0f172a] border border-[#1e293b] rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center ${globalAlert.isClosing ? 'animate-slide-down' : 'animate-slide-up'}`} onClick={e => e.stopPropagation()}>
+              <div className="text-sky-400 text-3xl mb-4">ℹ️</div>
+              <p className="text-white text-sm font-bold mb-6 whitespace-pre-wrap leading-relaxed">{globalAlert.msg}</p>
+              <button onClick={closeAppAlert} className="w-full py-3 bg-sky-500 hover:bg-sky-400 text-slate-900 rounded-xl font-bold transition-all active:scale-95 shadow-lg shadow-sky-500/20">OK</button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

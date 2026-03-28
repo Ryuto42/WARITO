@@ -26,6 +26,32 @@ const AccountTab: React.FC<AccountTabProps> = ({
   onUpdateFacultyColor
 }) => {
   const [showClassList, setShowClassList] = useState(false);
+  const [confirmDeleteState, setConfirmDeleteState] = useState({ isOpen: false, isClosing: false });
+  const [timeSettingsExpanded, setTimeSettingsExpanded] = useState(false);
+  
+  const openConfirmDelete = () => setConfirmDeleteState({ isOpen: true, isClosing: false });
+  const closeConfirmDelete = () => {
+    setConfirmDeleteState(prev => ({ ...prev, isClosing: true }));
+    setTimeout(() => setConfirmDeleteState({ isOpen: false, isClosing: false }), 200);
+  };
+  
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    return localStorage.getItem('waritoTheme') !== 'light';
+  });
+
+  const toggleTheme = () => {
+    const nextDark = !isDarkMode;
+    setIsDarkMode(nextDark);
+    localStorage.setItem('waritoTheme', nextDark ? 'dark' : 'light');
+    
+    document.documentElement.classList.add('theme-transition');
+    if (nextDark) {
+      document.documentElement.classList.remove('theme-light');
+    } else {
+      document.documentElement.classList.add('theme-light');
+    }
+    setTimeout(() => document.documentElement.classList.remove('theme-transition'), 500);
+  };
   
   const handleTimeChange = (period: number, type: 'start' | 'end', val: string) => {
     const updated = { ...setting };
@@ -40,11 +66,14 @@ const AccountTab: React.FC<AccountTabProps> = ({
     updateSetting({ ...setting, periodCount: count });
   };
 
-  const handleDeleteUser = async () => {
-    if(window.confirm('本当にアカウントを削除しますか？\n削除されたデータは復元できません。(※Supabase側でのRPC設定が必要です)')) {
-      const { error } = await supabase.rpc('delete_user');
-      if (!error) { alert('アカウントを削除しました'); onSignOut(); }
-      else { alert('エラーが発生しました: ' + error.message); }
+  const executeDeleteUser = async () => {
+    closeConfirmDelete();
+    await supabase.from('classes').delete().eq('user_id', session.user.id);
+    const { error } = await supabase.rpc('delete_user');
+    if (!error) { 
+      onSignOut(); 
+    } else { 
+      alert('エラーが発生しました: ' + error.message); 
     }
   };
 
@@ -57,7 +86,29 @@ const AccountTab: React.FC<AccountTabProps> = ({
   const uniqueFaculties = Object.keys(facultyColors).sort();
 
   return (
-    <div className="max-w-3xl mx-auto animate-fade-in pb-32 pt-8 px-4">
+    <>
+    {(confirmDeleteState.isOpen || confirmDeleteState.isClosing) && (
+      <div className={`fixed inset-0 bg-black/50 flex items-center justify-center z-[200] p-4 backdrop-blur-sm ${confirmDeleteState.isClosing ? 'animate-fade-out-overlay' : 'animate-fade-in-overlay'}`} onClick={closeConfirmDelete}>
+        <div className={`bg-[#0f172a] border border-[#1e293b] rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center scale-100 ${confirmDeleteState.isClosing ? 'animate-slide-down' : 'animate-slide-up'}`} onClick={e => e.stopPropagation()}>
+          <div className="text-red-500 text-3xl mb-4">⚠️</div>
+          <p className="text-white text-sm font-bold mb-2">アカウントを削除しますか？</p>
+          <p className="text-slate-400 text-xs mb-6 font-bold leading-relaxed">登録した時間割データもすべて削除され、復元はできません。</p>
+          <div className="flex gap-3">
+            <button onClick={closeConfirmDelete} className="w-1/2 py-3 bg-[#1e293b] hover:bg-[#334155] text-slate-300 rounded-xl font-bold transition-all active:scale-95">キャンセル</button>
+            <button onClick={executeDeleteUser} className="w-1/2 py-3 bg-red-500/20 hover:bg-red-500/30 text-red-500 border border-red-500/50 rounded-xl font-bold transition-all active:scale-95">削除する</button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    <div className="max-w-3xl mx-auto animate-fade-in pb-32 pt-8 px-4 relative">
+      <button 
+        onClick={toggleTheme}
+        className="absolute top-0 right-4 p-3 bg-[#111111] border border-gray-800 rounded-full shadow-lg text-xl hover:scale-110 active:scale-95 transition-all z-10"
+      >
+        {isDarkMode ? '🌙' : '☀️'}
+      </button>
+
       <div className="bg-[#111111] border border-gray-800 rounded-3xl p-8 mb-8 shadow-2xl text-center">
         <div className="w-20 h-20 bg-gray-900 border border-gray-800 text-sky-400 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl shadow-inner">
           👤
@@ -70,7 +121,7 @@ const AccountTab: React.FC<AccountTabProps> = ({
             ログアウト
           </button>
           <button 
-            onClick={handleDeleteUser} 
+            onClick={openConfirmDelete} 
             className="w-full bg-red-950/20 shadow-md border border-red-900/40 text-red-500 hover:text-red-400 font-bold p-3 rounded-xl transition-all"
           >
             アカウントを削除する
@@ -111,31 +162,40 @@ const AccountTab: React.FC<AccountTabProps> = ({
           </div>
         </div>
 
-        <div className="py-4">
-          <div className="text-sm font-bold text-gray-200 mb-3">各時限の時間設定</div>
-          <div className="space-y-3">
-            {Array.from({ length: setting.periodCount }, (_, i) => i + 1).map(period => (
-              <div key={period} className="flex items-center gap-3 bg-gray-900/50 p-3 rounded-xl border border-gray-800">
-                <div className="w-8 h-8 flex-none bg-gray-800 rounded-full flex justify-center items-center text-gray-300 font-bold text-sm">
-                  {period}
+        <div className="py-2">
+          <button 
+            onClick={() => setTimeSettingsExpanded(!timeSettingsExpanded)} 
+            className="w-full flex items-center justify-between text-sm font-bold text-gray-200 py-2 hover:text-white transition-colors"
+          >
+            <span>各時限の時間設定</span>
+            <span className="text-gray-500">{timeSettingsExpanded ? '▲' : '▼'}</span>
+          </button>
+          
+          <div className={`transition-all duration-300 overflow-hidden ${timeSettingsExpanded ? 'max-h-[1000px] opacity-100 mt-3' : 'max-h-0 opacity-0'}`}>
+            <div className="space-y-3 pb-2">
+              {Array.from({ length: setting.periodCount }, (_, i) => i + 1).map(period => (
+                <div key={period} className="flex items-center gap-3 bg-gray-900/50 p-3 rounded-xl border border-gray-800">
+                  <div className="w-8 h-8 flex-none bg-gray-800 rounded-full flex justify-center items-center text-gray-300 font-bold text-sm">
+                    {period}
+                  </div>
+                  <div className="flex flex-1 items-center gap-2">
+                    <input 
+                      type="time" 
+                      value={setting.periodTimes[period]?.start || ''} 
+                      onChange={(e) => handleTimeChange(period, 'start', e.target.value)}
+                      className="w-full bg-[#1A1A1A] text-gray-200 text-xs sm:text-sm p-2 rounded-md border border-gray-700 focus:outline-none focus:border-sky-500"
+                    />
+                    <span className="text-gray-500 font-bold">-</span>
+                    <input 
+                      type="time" 
+                      value={setting.periodTimes[period]?.end || ''} 
+                      onChange={(e) => handleTimeChange(period, 'end', e.target.value)}
+                      className="w-full bg-[#1A1A1A] text-gray-200 text-xs sm:text-sm p-2 rounded-md border border-gray-700 focus:outline-none focus:border-sky-500"
+                    />
+                  </div>
                 </div>
-                <div className="flex flex-1 items-center gap-2">
-                  <input 
-                    type="time" 
-                    value={setting.periodTimes[period]?.start || ''} 
-                    onChange={(e) => handleTimeChange(period, 'start', e.target.value)}
-                    className="w-full bg-[#1A1A1A] text-gray-200 text-xs sm:text-sm p-2 rounded-md border border-gray-700 focus:outline-none focus:border-sky-500"
-                  />
-                  <span className="text-gray-500 font-bold">-</span>
-                  <input 
-                    type="time" 
-                    value={setting.periodTimes[period]?.end || ''} 
-                    onChange={(e) => handleTimeChange(period, 'end', e.target.value)}
-                    className="w-full bg-[#1A1A1A] text-gray-200 text-xs sm:text-sm p-2 rounded-md border border-gray-700 focus:outline-none focus:border-sky-500"
-                  />
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -198,6 +258,7 @@ const AccountTab: React.FC<AccountTabProps> = ({
       </div>
 
     </div>
+    </>
   );
 };
 

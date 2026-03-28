@@ -45,7 +45,8 @@ export const PRESET_COLORS = [
   { id: 'bg-[#1e1b4b] text-indigo-200 border border-indigo-900/50', display: 'bg-indigo-800' },
   { id: 'bg-[#2e1065] text-violet-200 border border-violet-900/50', display: 'bg-violet-800' },
   { id: 'bg-[#4a044e] text-fuchsia-200 border border-fuchsia-900/50', display: 'bg-fuchsia-800' },
-  { id: 'bg-[#4c0519] text-rose-200 border border-rose-900/50', display: 'bg-rose-800' }
+  { id: 'bg-[#4c0519] text-rose-200 border border-rose-900/50', display: 'bg-rose-800' },
+  { id: 'bg-[#831843] text-pink-200 border border-pink-900/50', display: 'bg-pink-800' }
 ];
 
 export const formatDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
