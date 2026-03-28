@@ -96,11 +96,11 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
             <div key={`period-${period}`} className="flex gap-1 sm:gap-2">
               <div className={`w-8 sm:w-14 flex-none rounded-xl flex flex-col items-center justify-center p-0.5 sm:p-2 sticky left-0 z-10 h-full ${minHeightClass}`}>
                 {setting.periodTimes[period]?.start && (
-                  <span className="text-[7px] sm:text-[9px] text-slate-600 font-bold mb-1 opacity-70 tracking-tighter">{setting.periodTimes[period].start}</span>
+                  <span className="text-[8px] sm:text-[10px] text-slate-400 font-bold mb-0.5 tracking-tighter">{setting.periodTimes[period].start}</span>
                 )}
-                <span className="text-slate-500 text-xs sm:text-sm font-bold my-auto">{period}</span>
+                <span className="text-slate-300 text-sm sm:text-base font-extrabold my-auto">{period}</span>
                 {setting.periodTimes[period]?.end && (
-                  <span className="text-[7px] sm:text-[9px] text-slate-600 font-bold mt-1 opacity-70 tracking-tighter">{setting.periodTimes[period].end}</span>
+                  <span className="text-[8px] sm:text-[10px] text-slate-400 font-bold mt-0.5 tracking-tighter">{setting.periodTimes[period].end}</span>
                 )}
               </div>
 
@@ -123,12 +123,12 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
                             animationDelay: `${(period - 1) * 50 + displayDays.indexOf(day) * 30 + 150}ms`
                           }}
                         >
-                        <div className="w-full flex flex-col items-center justify-center space-y-1 sm:space-y-2">
-                          <div className={`font-bold leading-tight drop-shadow-md ${dayClasses.length > 1 ? 'text-[8px] sm:text-[10px]' : 'text-[9px] sm:text-xs'}`} style={{ color: '#ffffff' }}>
+                        <div className="w-full flex flex-col items-center justify-center gap-0.5 sm:gap-1">
+                          <div className={`font-bold leading-tight drop-shadow-md ${dayClasses.length > 1 ? 'text-[9px] sm:text-xs' : 'text-[11px] sm:text-sm'}`} style={{ color: '#ffffff' }}>
                             {cls.name}
                           </div>
                           {cls.room && (
-                            <div className={`bg-black/40 px-1.5 sm:px-2 py-0.5 rounded-full inline-block border border-white/10 shadow-sm shrink-0 ${dayClasses.length > 1 ? 'text-[6px] sm:text-[8px]' : 'text-[7px] sm:text-[9px]'}`} style={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+                            <div className={`bg-black/40 px-1.5 sm:px-2 py-0.5 rounded-full inline-block border border-white/10 shadow-sm shrink-0 ${dayClasses.length > 1 ? 'text-[7px] sm:text-[9px]' : 'text-[8px] sm:text-[10px]'}`} style={{ color: 'rgba(255, 255, 255, 0.9)' }}>
                               {cls.room}
                             </div>
                           )}
