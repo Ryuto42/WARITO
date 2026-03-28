@@ -246,7 +246,7 @@ export const ClassAddModal: React.FC<ClassAddModalProps> = ({ isOpen, isClosing,
   return (
     <>
     <CustomAlert isOpen={alertState.isOpen} isClosing={alertState.isClosing} message={alertState.msg} onClose={closeAlert} />
-    <div className={`fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4 backdrop-blur-sm ${isClosing ? 'animate-fade-out-overlay' : 'animate-fade-in-overlay'}`}>
+    <div className={`fixed inset-0 bg-black/70 flex items-center justify-center z-[1000] p-4 backdrop-blur-sm ${isClosing ? 'animate-fade-out-overlay' : 'animate-fade-in-overlay'}`}>
       <div className={`bg-[#0f172a] border border-[#1e293b] rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto ${isClosing ? 'animate-slide-down' : 'animate-slide-up'}`}>
         <h2 className="text-xl sm:text-2xl font-bold mb-6 text-white text-center tracking-wider">授業を追加</h2>
         <div className="space-y-4">
@@ -402,7 +402,7 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
   }).filter(Boolean) as { name: string; percent: number }[];
 
   return (
-    <div className={`fixed inset-0 bg-black/80 flex items-center justify-center z-[70] p-4 backdrop-blur-md ${isClosing ? 'animate-fade-out-overlay' : 'animate-fade-in-overlay'}`} onClick={onClose}>
+    <div className={`fixed inset-0 bg-black/80 flex items-center justify-center z-[1000] p-4 backdrop-blur-md ${isClosing ? 'animate-fade-out-overlay' : 'animate-fade-in-overlay'}`} onClick={onClose}>
       <div className={`bg-[#0f172a] border border-[#1e293b] rounded-2xl p-6 sm:p-8 w-full max-w-2xl shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar ${isClosing ? 'animate-slide-down' : 'animate-slide-up'}`} onClick={e => e.stopPropagation()}>
         <button onClick={onClose} className="absolute top-4 right-5 text-slate-500 hover:text-white text-xl p-1 transition-colors">✕</button>
         

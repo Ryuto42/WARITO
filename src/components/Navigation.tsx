@@ -7,9 +7,25 @@ interface NavigationProps {
 }
 
 const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab, onAddClick }) => {
+  const [isIOSWebkit, setIsIOSWebkit] = React.useState(false);
+
+  React.useEffect(() => {
+    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+    if (isIOS && isSafari) {
+      setIsIOSWebkit(true);
+    }
+  }, []);
+
   return (
     <>
-      <div className="fixed bottom-[calc(2.5rem+env(safe-area-inset-bottom))] sm:bottom-10 left-1/2 -translate-x-1/2 flex items-center justify-center z-[100] pointer-events-none gap-3 w-full px-6">
+      <div 
+        className={`fixed left-1/2 -translate-x-1/2 flex items-center justify-center z-10 pointer-events-none gap-3 w-full px-6 transition-all duration-300 ${
+          isIOSWebkit 
+            ? 'bottom-[calc(1.25rem+env(safe-area-inset-bottom))]' 
+            : 'bottom-10'
+        }`}
+      >
         <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-full h-14 flex items-center shadow-2xl relative w-64 pointer-events-auto">
           <div 
             className="absolute top-1.5 bottom-1.5 w-[calc(50%-6px)] bg-white/20 rounded-full transition-transform duration-300 ease-out z-0"
