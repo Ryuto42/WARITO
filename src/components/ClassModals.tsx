@@ -117,13 +117,30 @@ export const ClassAddModal: React.FC<ClassAddModalProps> = ({ isOpen, isClosing,
 
     const parsedName = extract(/科目名／Course title\s+([^／\n]+)/);
     const dayMapRev: { [key: string]: string } = { 月: 'Mon', 火: 'Tue', 水: 'Wed', 木: 'Thu', 金: 'Fri', 土: 'Sat' };
-    const rawDay = extract(/曜限／Period\s+([月火水木金土日])/);
-    const parsedDay = dayMapRev[rawDay] || 'Mon';
-    const periodStr = extract(/曜限／Period\s+[月火水木金土日]／[A-Za-z]+\s*([0-9]+)/);
-    const parsedPeriod = periodStr ? parseInt(periodStr, 10) : 1;
     
-    let parsedRoom = extract(/教室／Classroom\s+(?:[^:：\n]+[:：])?\s*([^／\n]+)/);
-    if (!parsedRoom) parsedRoom = extract(/教室／Classroom\s+([^／\n]+)/);
+    let parsedRoom = extract(/教室／Classroom\s+(?:[^:：\n]+[:：])?\s*([^／\n,]+)/);
+    if (!parsedRoom) parsedRoom = extract(/教室／Classroom\s+([^／\n,]+)/);
+
+    const periodLine = text.match(/曜限／Period\s+([^\n]+)/)?.[1] || '';
+    const schedules: { day: string; period: number; room: string }[] = [];
+    const periodsRegex = /([月火水木金土日])／[A-Za-z]+\s*([0-9]+)/g;
+    let pMatch;
+    while ((pMatch = periodsRegex.exec(periodLine)) !== null) {
+      schedules.push({
+        day: dayMapRev[pMatch[1]] || 'Mon',
+        period: parseInt(pMatch[2], 10),
+        room: parsedRoom
+      });
+    }
+
+    if (schedules.length === 0) {
+      const rawDay = extract(/曜限／Period\s+([月火水木金土日])/);
+      schedules.push({
+        day: dayMapRev[rawDay] || 'Mon',
+        period: parseInt(extract(/曜限／Period\s+[月火水木金土日]／[A-Za-z]+\s*([0-9]+)/) || '1', 10),
+        room: parsedRoom
+      });
+    }
 
     const facultyLine = text.match(/開講元学部[^\n]*/)?.[0] || '';
     const facultyRaw = facultyLine.split(/[\t 　]+/)[1]?.split('／')[0]?.trim() || '';
@@ -144,14 +161,23 @@ export const ClassAddModal: React.FC<ClassAddModalProps> = ({ isOpen, isClosing,
     const evalMatch = text.match(/評価基準・割合[\s\S]*?／Evaluation\s*([\s\S]*?)(?=テキスト|自由記述|参考書|講義スケジュール|$)/);
     const parsedEvaluationRaw = evalMatch ? evalMatch[1] : '';
     
-    const parsedEvaluation = parsedEvaluationRaw.split('\n').map(line => {
+    const evalLines = parsedEvaluationRaw.split('\n');
+    const percentLines: string[] = [];
+    const detailLines: string[] = [];
+    let foundPercent = false;
+    evalLines.forEach(line => {
       const pMatch = line.match(/(\d+(?:\.\d+)?)[％%]/);
       if (pMatch) {
         const name = line.split('／')[0].trim();
-        return `${name} (${pMatch[1]}%)`;
+        percentLines.push(`${name} (${pMatch[1]}%)`);
+        foundPercent = true;
+      } else if (line.trim() && foundPercent) {
+        detailLines.push(line.trim());
       }
-      return '';
-    }).filter(Boolean).join('\n');
+    });
+    const parsedEvaluation = detailLines.length > 0
+      ? percentLines.join('\n') + '\n---\n' + detailLines.join('\n')
+      : percentLines.join('\n');
 
     const parsedScheduleRaw = extract(/授業計画／Class schedule\s*([\s\S]*?)(?=課題等に対するフィードバック方法|備考|$)/);
     const parsedSchedule = parsedScheduleRaw.split('\n').filter(line => line.trim() !== '').join('\n');
@@ -172,9 +198,10 @@ export const ClassAddModal: React.FC<ClassAddModalProps> = ({ isOpen, isClosing,
       };
 
       maybeUpdate('name', parsedName);
-      maybeUpdate('room', parsedRoom);
-      maybeUpdate('day', parsedDay);
-      maybeUpdate('period', parsedPeriod);
+      maybeUpdate('room', schedules[0].room);
+      maybeUpdate('day', schedules[0].day);
+      maybeUpdate('period', schedules[0].period);
+      maybeUpdate('class_schedules', schedules);
       maybeUpdate('faculty_dept', parsedFacultyDept);
       maybeUpdate('instructor', parsedInstructor);
       maybeUpdate('semester', parsedSemester);
@@ -183,6 +210,11 @@ export const ClassAddModal: React.FC<ClassAddModalProps> = ({ isOpen, isClosing,
       maybeUpdate('credits', parsedCredits);
       maybeUpdate('evaluation', parsedEvaluation);
       maybeUpdate('updated_at', parsedUpdatedAt);
+
+      if (parsedClassFormat && parsedClassFormat.includes('オンデマンド')) {
+        schedules.forEach(s => { if (!s.room) s.room = 'オンデマ'; });
+        if (!next.room) next.room = 'オンデマ';
+      }
       
       return next;
     });
@@ -251,6 +283,7 @@ export const ClassAddModal: React.FC<ClassAddModalProps> = ({ isOpen, isClosing,
               />
             </div>
           </div>
+
           <div>
             <label className="block text-xs text-slate-400 mb-2 font-bold ml-1">メモ</label>
             <input 
@@ -298,7 +331,7 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
   const [editMode, setEditMode] = useState(false);
   
   const [inputName, setInputName] = useState('');
-  const [inputRoom, setInputRoom] = useState('');
+  const [inputSchedules, setInputSchedules] = useState<{day:string, period:number, room:string}[]>([]);
   const [inputColor, setInputColor] = useState('');
   const [inputFacultyDept, setInputFacultyDept] = useState('');
   const [inputInstructor, setInputInstructor] = useState('');
@@ -312,7 +345,7 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
   useEffect(() => {
     if (cls && !editMode) {
       setInputName(cls.name || '');
-      setInputRoom(cls.room || '');
+      setInputSchedules(cls.class_schedules && cls.class_schedules.length > 0 ? cls.class_schedules : [{ day: cls.day, period: cls.period, room: cls.room }]);
       setInputColor(cls.color || PRESET_COLORS[0].id);
       setInputFacultyDept(cls.faculty_dept || '');
       setInputInstructor(cls.instructor || '');
@@ -331,7 +364,10 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
     onSave({
       id: cls?.id,
       name: inputName,
-      room: inputRoom,
+      room: inputSchedules[0]?.room || '',
+      day: inputSchedules[0]?.day || 'Mon',
+      period: inputSchedules[0]?.period || 1,
+      class_schedules: inputSchedules,
       color: inputColor,
       faculty_dept: inputFacultyDept,
       instructor: inputInstructor,
@@ -345,11 +381,15 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
     setEditMode(false);
   };
 
-  const evaluationItems = cls.evaluation ? cls.evaluation.split('\n').map(line => {
+  const evalParts = cls.evaluation ? cls.evaluation.split('\n---\n') : [];
+  const evalPercentSection = evalParts[0] || '';
+  const evalDetailSection = evalParts.length > 1 ? evalParts.slice(1).join('\n') : '';
+
+  const evaluationItems = evalPercentSection.split('\n').map(line => {
     const match = line.match(/(.*?)\s*\(([\d.]+)%\)/);
     if (match) return { name: match[1].trim(), percent: parseFloat(match[2]) };
     return null;
-  }).filter(Boolean) as { name: string; percent: number }[] : [];
+  }).filter(Boolean) as { name: string; percent: number }[];
 
   return (
     <div className={`fixed inset-0 bg-black/80 flex items-center justify-center z-[70] p-4 backdrop-blur-md ${isClosing ? 'animate-fade-out-overlay' : 'animate-fade-in-overlay'}`} onClick={onClose}>
@@ -365,8 +405,12 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
         )}
 
         <div className="flex flex-col items-center mb-8 mt-6">
-          <div className={`inline-block px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold mb-4 ${cls.color} text-white shadow-sm border border-white/10 tracking-widest`}>
-            {dayMap[cls.day]}曜日 {cls.period}限
+          <div className="flex flex-wrap gap-2 justify-center mb-4">
+            {(cls.class_schedules && cls.class_schedules.length > 0 ? cls.class_schedules : [{ day: cls.day, period: cls.period }]).map((sch, i) => (
+              <div key={i} className={`inline-block px-3 py-1 sm:px-4 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold ${cls.color} text-white shadow-sm border border-white/10 tracking-widest`}>
+                {dayMap[sch.day] || sch.day}曜日 {sch.period}限
+              </div>
+            ))}
           </div>
           {editMode ? (
             <input type="text" value={inputName} onChange={e => setInputName(e.target.value)} className="w-full max-w-sm bg-[#1e293b] border border-[#334155] rounded-xl p-3 text-white text-center text-xl font-bold focus:outline-none focus:border-sky-500 transition-colors" />
@@ -377,11 +421,69 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
         
         {editMode ? (
           <div className="space-y-4 animate-fade-in">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs text-slate-400 mb-1 font-bold ml-1">教室</label>
-                <input type="text" value={inputRoom} onChange={e => setInputRoom(e.target.value)} className="w-full bg-[#1e293b]/50 border border-[#334155]/50 rounded-xl p-3 text-white focus:outline-none focus:border-sky-500" />
+            <div className="mb-4">
+              <label className="block text-xs text-slate-400 mb-2 font-bold ml-1">時間割・教室</label>
+              <div className="space-y-2">
+                {inputSchedules.map((sch, i) => (
+                  <div key={i} className="flex gap-2 items-center bg-[#1e293b]/50 p-2 rounded-xl border border-[#334155]/50">
+                    <select 
+                      value={sch.day} 
+                      onChange={e => {
+                        const newSchedules = [...inputSchedules];
+                        newSchedules[i] = { ...newSchedules[i], day: e.target.value };
+                        setInputSchedules(newSchedules);
+                      }}
+                      className="bg-[#0f172a] text-white border border-[#334155] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-sky-500"
+                    >
+                      <option value="Mon">月</option>
+                      <option value="Tue">火</option>
+                      <option value="Wed">水</option>
+                      <option value="Thu">木</option>
+                      <option value="Fri">金</option>
+                      <option value="Sat">土</option>
+                    </select>
+                    <select 
+                      value={sch.period} 
+                      onChange={e => {
+                        const newSchedules = [...inputSchedules];
+                        newSchedules[i] = { ...newSchedules[i], period: parseInt(e.target.value, 10) };
+                        setInputSchedules(newSchedules);
+                      }}
+                      className="bg-[#0f172a] text-white border border-[#334155] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-sky-500"
+                    >
+                      {[1,2,3,4,5,6,7].map(num => <option key={num} value={num}>{num}限</option>)}
+                    </select>
+                    <input 
+                      type="text" 
+                      value={sch.room || ''} 
+                      onChange={e => {
+                        const newSchedules = [...inputSchedules];
+                        newSchedules[i] = { ...newSchedules[i], room: e.target.value };
+                        setInputSchedules(newSchedules);
+                      }}
+                      placeholder="教室" 
+                      className="flex-1 w-20 bg-[#0f172a] text-white border border-[#334155] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-sky-500" 
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        const newSchedules = inputSchedules.filter((_, idx) => idx !== i);
+                        setInputSchedules(newSchedules.length > 0 ? newSchedules : [{ day: 'Mon', period: 1, room: '' }]);
+                      }} 
+                      className="text-red-400 hover:text-red-300 p-1"
+                    >✕</button>
+                  </div>
+                ))}
               </div>
+              <button 
+                type="button" 
+                onClick={() => setInputSchedules([...inputSchedules, { day: 'Mon', period: 1, room: '' }])} 
+                className="mt-2 text-xs text-sky-400 hover:text-sky-400/80 font-bold px-3 py-2 rounded-lg border border-sky-400/30 border-dashed w-full"
+              >
+                + コマを追加
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs text-slate-400 mb-1 font-bold ml-1">単位数</label>
                 <input type="number" value={inputCredits} onChange={e => setInputCredits(Number(e.target.value))} className="w-full bg-[#1e293b]/50 border border-[#334155]/50 rounded-xl p-3 text-white focus:outline-none focus:border-sky-500" />
@@ -430,7 +532,7 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
           <div className="animate-fade-in pb-4">
             <div className="grid grid-cols-2 gap-3 mb-6">
               {[
-                { label: '教室', value: cls.room },
+                { label: '教室', value: cls.class_schedules && cls.class_schedules.length > 0 ? Array.from(new Set(cls.class_schedules.map(s => s.room).filter(Boolean))).join(', ') : cls.room },
                 { label: '単位数', value: cls.credits ? `${cls.credits}単位` : null },
                 { label: '担当教員', value: cls.instructor },
                 { label: '学期', value: cls.semester },
@@ -451,10 +553,13 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
               </div>
             )}
 
-            {evaluationItems.length > 0 && (
+            {(evaluationItems.length > 0 || evalDetailSection) && (
               <div className="bg-[#1e293b]/50 p-5 rounded-xl border border-[#1e293b] mb-4 shadow-sm">
                 <div className="text-[10px] sm:text-xs text-slate-400 font-bold mb-3 tracking-wider">評価基準・割合</div>
-                <PieChart items={evaluationItems} />
+                {evaluationItems.length > 0 && <PieChart items={evaluationItems} />}
+                {evalDetailSection && (
+                  <pre className="text-xs text-slate-400 whitespace-pre-wrap font-sans leading-relaxed mt-4 pt-4 border-t border-slate-700/50">{evalDetailSection}</pre>
+                )}
               </div>
             )}
 

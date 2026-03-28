@@ -17,6 +17,7 @@ export interface ClassInfo {
   semester?: string;
   academic_year?: number;
   memo?: string;
+  class_schedules?: { day: string; period: number; room: string }[];
 }
 
 export interface PeriodTime {

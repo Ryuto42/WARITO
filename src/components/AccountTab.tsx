@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { dayMap, PRESET_COLORS } from '../types';
 import type { ClassInfo, TimetableTermSetting } from '../types';
+import pako from 'pako';
 
 
 interface AccountTabProps {
@@ -28,6 +29,7 @@ const AccountTab: React.FC<AccountTabProps> = ({
   const [showClassList, setShowClassList] = useState(false);
   const [confirmDeleteState, setConfirmDeleteState] = useState({ isOpen: false, isClosing: false });
   const [timeSettingsExpanded, setTimeSettingsExpanded] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
   
   const openConfirmDelete = () => setConfirmDeleteState({ isOpen: true, isClosing: false });
   const closeConfirmDelete = () => {
@@ -127,6 +129,38 @@ const AccountTab: React.FC<AccountTabProps> = ({
             アカウントを削除する
           </button>
         </div>
+      </div>
+
+      <div className="bg-[#111111] border border-gray-800 rounded-2xl p-6 mb-8 text-left shadow-xl">
+        <h3 className="text-lg font-bold text-white mb-4 border-b border-gray-800 pb-2">
+          🔗 時間割を共有する
+        </h3>
+        <p className="text-xs text-gray-400 mb-4 font-bold leading-relaxed">
+          現在の学期（{currentYear}年 {currentSemester}）の時間割をURLで共有できます。受け取った人はURLを開くだけで自動インポートできます。
+        </p>
+        <button
+          onClick={() => {
+            const termClasses = classes.filter(c => c.academic_year === currentYear && c.semester === currentSemester);
+            if (termClasses.length === 0) { setShareUrl(''); return; }
+            const shareData = JSON.stringify({ year: currentYear, semester: currentSemester, classes: termClasses });
+            const compressed = pako.deflate(shareData);
+            const base64 = btoa(String.fromCharCode(...compressed));
+            const url = `${window.location.origin}${window.location.pathname}?share=${base64}`;
+            setShareUrl(url);
+            navigator.clipboard.writeText(url).catch(() => {});
+          }}
+          className="w-full bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-400 hover:text-sky-300 font-bold p-3 rounded-xl transition-all active:scale-95 text-sm tracking-wider"
+        >
+          📲 共有URLを生成する
+        </button>
+        {shareUrl && (
+          <div className="mt-3">
+            <div className="bg-gray-900 border border-gray-700 rounded-xl p-3 text-xs text-gray-300 break-all select-all font-mono">
+              {shareUrl}
+            </div>
+            <p className="text-[10px] text-emerald-400 mt-2 font-bold">✓ クリップボードにコピーしました</p>
+          </div>
+        )}
       </div>
 
       <div className="bg-[#111111] border border-gray-800 rounded-2xl p-6 mb-8 text-left shadow-xl">

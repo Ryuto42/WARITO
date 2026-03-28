@@ -6,6 +6,7 @@ import TimetableTab from './components/TimetableTab';
 import AccountTab from './components/AccountTab';
 import Navigation from './components/Navigation';
 import { ClassAddModal, ClassDetailModal } from './components/ClassModals';
+import pako from 'pako';
 
 const App = () => {
 
@@ -31,6 +32,10 @@ const App = () => {
   const [timetableSettings, setTimetableSettings] = useState<TimetableSettingsRecord>({});
   
   const [globalAlert, setGlobalAlert] = useState({ isOpen: false, isClosing: false, msg: '' });
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [isClosingWelcome, setIsClosingWelcome] = useState(false);
+  const [shareImportData, setShareImportData] = useState<any>(null);
+  const [isClosingImport, setIsClosingImport] = useState(false);
 
   const showAppAlert = (msg: string) => setGlobalAlert({ isOpen: true, isClosing: false, msg });
   const closeAppAlert = () => {
@@ -47,7 +52,13 @@ const App = () => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      if (session) fetchClasses(session.user.id);
+      if (session) {
+        fetchClasses(session.user.id);
+        if (!localStorage.getItem('waritoWelcomeDone')) {
+          setShowWelcome(true);
+          localStorage.setItem('waritoWelcomeDone', 'true');
+        }
+      }
     });
 
     const saved = localStorage.getItem('waritoSettings');
@@ -56,6 +67,20 @@ const App = () => {
         setTimetableSettings(JSON.parse(saved));
       } catch (e) {
         console.error('Failed to parse settings');
+      }
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const shareParam = params.get('share');
+    if (shareParam) {
+      try {
+        const binary = Uint8Array.from(atob(shareParam), c => c.charCodeAt(0));
+        const decompressed = pako.inflate(binary, { to: 'string' });
+        const parsed = JSON.parse(decompressed);
+        setShareImportData(parsed);
+        window.history.replaceState({}, '', window.location.pathname);
+      } catch (e) {
+        console.error('Failed to decode share data', e);
       }
     }
 
@@ -94,7 +119,7 @@ const App = () => {
         email,
         password,
         options: {
-          emailRedirectTo: window.location.origin,
+          emailRedirectTo: 'https://warito.pages.dev/',
         },
       });
 
@@ -159,9 +184,15 @@ const App = () => {
 
   const timetableData: { [day: string]: { [period: number]: ClassInfo[] } } = {};
   classes.filter(c => c.academic_year === currentYear && c.semester === currentSemester).forEach(c => {
-    if (!timetableData[c.day]) timetableData[c.day] = {};
-    if (!timetableData[c.day][c.period]) timetableData[c.day][c.period] = [];
-    timetableData[c.day][c.period].push(c);
+    const schedules = c.class_schedules && c.class_schedules.length > 0 
+      ? c.class_schedules 
+      : [{ day: c.day, period: c.period, room: c.room }];
+      
+    schedules.forEach(sch => {
+      if (!timetableData[sch.day]) timetableData[sch.day] = {};
+      if (!timetableData[sch.day][sch.period]) timetableData[sch.day][sch.period] = [];
+      timetableData[sch.day][sch.period].push({ ...c, day: sch.day, period: sch.period, room: sch.room || c.room });
+    });
   });
 
   const handleSaveClass = async (payload: Partial<ClassInfo>) => {
@@ -258,6 +289,46 @@ const App = () => {
     setTimeout(() => {
       setIsAddModalOpen(false);
       setIsClosingAdd(false);
+    }, 200);
+  };
+
+  const handleImportShare = async () => {
+    if (!shareImportData || !session) return;
+    const items = shareImportData.classes || [];
+    let imported = 0;
+    for (const item of items) {
+      const { id, user_id, created_at, ...rest } = item;
+      const classPayload = {
+        user_id: session.user.id,
+        ...rest,
+      };
+      const { error } = await supabase.from('classes').insert([classPayload]);
+      if (!error) imported++;
+    }
+    fetchClasses(session.user.id);
+    if (shareImportData.year) setCurrentYear(shareImportData.year);
+    if (shareImportData.semester) setCurrentSemester(shareImportData.semester);
+    setIsClosingImport(true);
+    setTimeout(() => {
+      setShareImportData(null);
+      setIsClosingImport(false);
+    }, 200);
+    showAppAlert(`${imported}件の授業をインポートしました！`);
+  };
+
+  const dismissImport = () => {
+    setIsClosingImport(true);
+    setTimeout(() => {
+      setShareImportData(null);
+      setIsClosingImport(false);
+    }, 200);
+  };
+
+  const closeWelcome = () => {
+    setIsClosingWelcome(true);
+    setTimeout(() => {
+      setShowWelcome(false);
+      setIsClosingWelcome(false);
     }, 200);
   };
 
@@ -469,6 +540,33 @@ const App = () => {
               <div className="text-sky-400 text-3xl mb-4">ℹ️</div>
               <p className="text-white text-sm font-bold mb-6 whitespace-pre-wrap leading-relaxed">{globalAlert.msg}</p>
               <button onClick={closeAppAlert} className="w-full py-3 bg-sky-500 hover:bg-sky-400 text-slate-900 rounded-xl font-bold transition-all active:scale-95 shadow-lg shadow-sky-500/20">OK</button>
+            </div>
+          </div>
+        )}
+
+        {(showWelcome || isClosingWelcome) && (
+          <div className={`fixed inset-0 bg-black/60 flex items-center justify-center z-[200] p-4 backdrop-blur-md ${isClosingWelcome ? 'animate-fade-out-overlay' : 'animate-fade-in-overlay'}`} onClick={closeWelcome}>
+            <div className={`bg-[#0f172a] border border-[#1e293b] rounded-3xl p-8 sm:p-10 w-full max-w-md shadow-2xl text-center ${isClosingWelcome ? 'animate-slide-down' : 'animate-slide-up'}`} onClick={e => e.stopPropagation()}>
+              <div className="text-5xl mb-4">🎓</div>
+              <h2 className="text-2xl sm:text-3xl font-black text-white mb-3 tracking-wider">ようこそ！</h2>
+              <p className="text-slate-400 text-sm mb-2 font-bold leading-relaxed">WARITOへのご登録ありがとうございます。</p>
+              <p className="text-slate-500 text-xs mb-8 leading-relaxed">シラバスを貼り付けるだけで時間割が完成します。<br/>まずは ＋ ボタンから授業を追加してみましょう！</p>
+              <button onClick={closeWelcome} className="w-full py-3.5 bg-gradient-to-r from-sky-500 to-blue-500 hover:from-sky-400 hover:to-blue-400 text-white rounded-xl font-bold transition-all active:scale-95 shadow-lg shadow-sky-500/20 text-sm tracking-widest">はじめる</button>
+            </div>
+          </div>
+        )}
+
+        {(shareImportData || isClosingImport) && session && (
+          <div className={`fixed inset-0 bg-black/60 flex items-center justify-center z-[200] p-4 backdrop-blur-md ${isClosingImport ? 'animate-fade-out-overlay' : 'animate-fade-in-overlay'}`} onClick={dismissImport}>
+            <div className={`bg-[#0f172a] border border-[#1e293b] rounded-3xl p-8 w-full max-w-md shadow-2xl text-center ${isClosingImport ? 'animate-slide-down' : 'animate-slide-up'}`} onClick={e => e.stopPropagation()}>
+              <div className="text-4xl mb-4">📥</div>
+              <h2 className="text-xl font-bold text-white mb-3">時間割のインポート</h2>
+              <p className="text-slate-400 text-sm mb-2 font-bold">{shareImportData?.year}年度 {shareImportData?.semester}</p>
+              <p className="text-slate-500 text-xs mb-6">{shareImportData?.classes?.length || 0}件の授業データが共有されています。<br/>インポートしますか？</p>
+              <div className="flex gap-3">
+                <button onClick={dismissImport} className="w-1/2 py-3 bg-[#1e293b] hover:bg-[#334155] text-slate-300 rounded-xl font-bold transition-all active:scale-95 border border-[#1e293b]">キャンセル</button>
+                <button onClick={handleImportShare} className="w-1/2 py-3 bg-sky-500 hover:bg-sky-400 text-slate-900 rounded-xl font-bold transition-all active:scale-95 shadow-lg shadow-sky-500/20">インポート</button>
+              </div>
             </div>
           </div>
         )}
