@@ -123,11 +123,11 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
                     onClick={() => {}}
                   >
                     <div className="absolute inset-0 flex flex-col sm:flex-row h-full">
-                      {dayClasses.map((cls, idx) => (
+                      {dayClasses.map((cls) => (
                         <div 
                           key={cls.id} 
                           onClick={(e) => { e.stopPropagation(); onClassClick(cls); }} 
-                          className={`flex-1 h-full relative p-1 sm:p-2 transition-all duration-200 shadow-md ${cls.color} ${idx > 0 ? 'border-t border-transparent sm:border-t-0 sm:border-l' : ''} z-10 flex flex-col justify-center items-center text-center opacity-0 animate-[slideUp_0.4s_cubic-bezier(0.16,1,0.3,1)_forwards] class-card`}
+                          className={`flex-1 h-full relative p-1 sm:p-2 transition-all duration-200 shadow-md ${cls.color} z-10 flex flex-col justify-center items-center text-center opacity-0 animate-[slideUp_0.4s_cubic-bezier(0.16,1,0.3,1)_forwards] class-card`}
                           style={{ 
                             animationDelay: `${(period - 1) * 50 + displayDays.indexOf(day) * 30 + 150}ms`
                           }}
@@ -139,7 +139,7 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
                           </div>
                           {cls.room && (
                             <div className={`absolute bottom-1 left-1 right-1 flex justify-center pointer-events-none ${dayClasses.length > 1 ? 'hidden sm:flex' : 'flex'}`}>
-                              <div className={`${([cls.room, cls.class_format, cls.schedule].some(t => t && (t.includes('オンデマンド') || t.includes('オンデマ') || t.includes('ZOOM')))) ? 'bg-emerald-500/25 border-emerald-400/30' : 'bg-black/40 border-white/10'} px-1.5 sm:px-2 py-0.5 rounded-full inline-block border shadow-sm shrink-0 ${dayClasses.length > 1 ? 'text-[7px] sm:text-[9px]' : 'text-[8px] sm:text-[10px]'} text-slate-200`}>
+                              <div className={`${([cls.room, cls.class_format, cls.schedule].some(t => t && (t.includes('オンデマンド') || t.includes('オンデマ') || t.includes('ZOOM')))) ? 'bg-emerald-500/25 border-emerald-400/30' : 'bg-black/40 border-transparent'} px-1.5 sm:px-2 py-0.5 rounded-full inline-block border shadow-sm shrink-0 ${dayClasses.length > 1 ? 'text-[7px] sm:text-[9px]' : 'text-[8px] sm:text-[10px]'} text-slate-200`}>
                                 {cls.room}
                               </div>
                             </div>
@@ -157,7 +157,7 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
 
       <div className={`fixed left-1/2 -translate-x-1/2 z-[50] transition-all duration-300 ${
         isIOSWebkit 
-          ? 'bottom-[calc(8rem+env(safe-area-inset-bottom))]' 
+          ? 'bottom-[calc(7rem+env(safe-area-inset-bottom))]' 
           : 'bottom-[7.5rem] sm:bottom-[8.5rem]'
       }`}>
         <button 

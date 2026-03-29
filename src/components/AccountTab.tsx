@@ -295,13 +295,13 @@ const AccountTab: React.FC<AccountTabProps> = ({
                       <button
                         key={colorObj.id}
                         onClick={() => {
-                          if (facultyColors[faculty] !== colorObj.id) {
+                          if (!isSameColor(facultyColors[faculty], colorObj.id)) {
                             onUpdateFacultyColor(faculty, colorObj.id);
                           }
                         }}
-                        className={`shrink-0 w-8 h-8 rounded-full border-2 transition-transform duration-200 active:scale-90 flex items-center justify-center ${facultyColors[faculty] === colorObj.id ? 'color-picker-active scale-110' : 'border-transparent opacity-80'} ${colorObj.display}`}
+                        className={`shrink-0 w-8 h-8 rounded-full border-2 transition-transform duration-200 active:scale-90 flex items-center justify-center ${isSameColor(facultyColors[faculty], colorObj.id) ? 'color-picker-active scale-110' : '!border-none opacity-80'} ${colorObj.display}`}
                       >
-                        {facultyColors[faculty] === colorObj.id && (
+                        {isSameColor(facultyColors[faculty], colorObj.id) && (
                           <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                           </svg>
@@ -345,6 +345,12 @@ const AccountTab: React.FC<AccountTabProps> = ({
     </div>
     </>
   );
+};
+
+const isSameColor = (color1: string, color2: string) => {
+  if (!color1 || !color2) return color1 === color2;
+  const getBase = (c: string) => c.split(' ').filter(p => p.startsWith('bg-[')).join(' ');
+  return getBase(color1) === getBase(color2);
 };
 
 export default AccountTab;
