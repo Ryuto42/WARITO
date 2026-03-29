@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { formatDays } from '../types';
 import type { ClassInfo, TimetableTermSetting } from '../types';
 
@@ -28,6 +28,15 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
   const [isClosingTerm, setIsClosingTerm] = useState(false);
   const [modalYear, setModalYear] = useState(currentYear);
   const [modalSemester, setModalSemester] = useState(currentSemester);
+  const [isIOSWebkit, setIsIOSWebkit] = useState(false);
+
+  useEffect(() => {
+    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+    if (isIOS && isSafari) {
+      setIsIOSWebkit(true);
+    }
+  }, []);
 
   const SEMESTER_OPTIONS = [
     { label: '1学期 / 前期 / 春学期', value: '春学期' },
@@ -47,9 +56,9 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
   };
 
   const getPeriodMinHeight = () => {
-    if (setting.periodCount >= 7) return "min-h-[85px] sm:min-h-[75px]";
-    if (setting.periodCount === 6) return "min-h-[100px] sm:min-h-[95px]";
-    return "min-h-[125px] sm:min-h-[120px]";
+    if (setting.periodCount >= 7) return "min-h-[70px] sm:min-h-[65px]";
+    if (setting.periodCount === 6) return "min-h-[85px] sm:min-h-[80px]";
+    return "min-h-[105px] sm:min-h-[100px]";
   };
   const minHeightClass = getPeriodMinHeight();
 
@@ -77,30 +86,30 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
   };
 
   return (
-    <div className="max-w-6xl mx-auto pb-32 animate-fade-in relative z-10 text-gray-200">
-      <div className="px-1 sm:px-2 mt-4 sm:mt-6">
-        <div className="flex gap-1 sm:gap-2 mb-1.5 sm:mb-2">
-          <div className="w-10 sm:w-16 flex-none invisible"></div>
+    <div className="max-w-5xl mx-auto pb-32 animate-fade-in relative z-10 text-gray-200">
+      <div className="px-0.5 sm:px-1 mt-3 sm:mt-4">
+        <div className="flex gap-0.5 sm:gap-1.5 mb-1 sm:mb-1.5">
+          <div className="w-8 sm:w-14 flex-none invisible"></div>
           {displayDays.map((day) => (
             <div 
               key={day} 
-              className={`flex-1 rounded-xl text-center py-2 sm:py-3 text-[10px] sm:text-xs font-bold tracking-wider ${day === currentDayStr ? 'bg-sky-400 text-[#0f172a]' : 'bg-[#1e293b] text-slate-300'}`}
+              className={`flex-1 rounded-xl text-center py-1.5 sm:py-2.5 text-[9px] sm:text-[11px] font-bold tracking-wider ${day === currentDayStr ? 'bg-sky-400 text-[#0f172a]' : 'bg-[#1e293b] text-slate-300'}`}
             >
               {day}
             </div>
           ))}
         </div>
 
-        <div className="flex flex-col gap-1 sm:gap-2">
+        <div className="flex flex-col gap-0.5 sm:gap-1.5">
           {periods.map(period => (
-            <div key={`period-${period}`} className="flex gap-1 sm:gap-2">
-              <div className={`w-10 sm:w-16 flex-none rounded-xl flex flex-col items-center justify-center p-1 sm:p-2 sticky left-0 z-10 h-full ${minHeightClass}`}>
+            <div key={`period-${period}`} className="flex gap-0.5 sm:gap-1.5">
+              <div className={`w-8 sm:w-14 flex-none rounded-xl flex flex-col items-center justify-center p-0.5 sm:p-1.5 sticky left-0 z-10 h-full ${minHeightClass}`}>
                 {setting.periodTimes[period]?.start && (
-                  <span className="text-[9px] sm:text-[11px] text-slate-200 font-bold mb-0.5 tracking-tighter">{setting.periodTimes[period].start}</span>
+                  <span className="text-[8px] sm:text-[10px] text-slate-200 font-bold mb-0.5 tracking-tighter">{setting.periodTimes[period].start}</span>
                 )}
-                <span className="text-sky-400 text-sm sm:text-lg font-black my-auto">{period}</span>
+                <span className="text-sky-400 text-xs sm:text-base font-black my-auto">{period}</span>
                 {setting.periodTimes[period]?.end && (
-                  <span className="text-[9px] sm:text-[11px] text-slate-200 font-bold mt-0.5 tracking-tighter">{setting.periodTimes[period].end}</span>
+                  <span className="text-[8px] sm:text-[10px] text-slate-200 font-bold mt-0.5 tracking-tighter">{setting.periodTimes[period].end}</span>
                 )}
               </div>
 
@@ -118,13 +127,13 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
                         <div 
                           key={cls.id} 
                           onClick={(e) => { e.stopPropagation(); onClassClick(cls); }} 
-                          className={`flex-1 h-full relative p-1 sm:p-2 transition-all duration-200 shadow-md ${cls.color} ${idx > 0 ? 'border-t border-white/20 sm:border-t-0 sm:border-l' : ''} z-10 flex flex-col justify-center items-center text-center opacity-0 animate-[slideUp_0.4s_cubic-bezier(0.16,1,0.3,1)_forwards] class-card`}
+                          className={`flex-1 h-full relative p-1 sm:p-2 transition-all duration-200 shadow-md ${cls.color} ${idx > 0 ? 'border-t border-transparent sm:border-t-0 sm:border-l' : ''} z-10 flex flex-col justify-center items-center text-center opacity-0 animate-[slideUp_0.4s_cubic-bezier(0.16,1,0.3,1)_forwards] class-card`}
                           style={{ 
                             animationDelay: `${(period - 1) * 50 + displayDays.indexOf(day) * 30 + 150}ms`
                           }}
                         >
                           <div className="flex-1 w-full flex items-center justify-center px-1">
-                            <div className={`font-bold leading-tight drop-shadow-md ${dayClasses.length > 1 ? 'text-[9px] sm:text-xs' : 'text-[11px] sm:text-sm'}`} style={{ color: '#ffffff' }}>
+                            <div className={`font-bold leading-tight drop-shadow-md ${dayClasses.length > 1 ? 'text-[8px] sm:text-[10px]' : 'text-[10px] sm:text-[13px]'}`} style={{ color: '#ffffff' }}>
                               {cls.name}
                             </div>
                           </div>
@@ -146,10 +155,14 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
         </div>
       </div>
 
-      <div className="fixed bottom-32 sm:bottom-36 left-1/2 -translate-x-1/2 z-[50]">
+      <div className={`fixed left-1/2 -translate-x-1/2 z-[50] transition-all duration-300 ${
+        isIOSWebkit 
+          ? 'bottom-[calc(8rem+env(safe-area-inset-bottom))]' 
+          : 'bottom-[7.5rem] sm:bottom-[8.5rem]'
+      }`}>
         <button 
           onClick={handleOpenTermModal}
-          className="term-btn bg-black/30 backdrop-blur-md border border-white/10 rounded-full px-6 py-2.5 sm:py-3 shadow-lg text-white text-[10px] sm:text-xs font-bold tracking-widest hover:bg-black/50 active:scale-95 transition-all flex items-center gap-2"
+          className="term-btn bg-black/30 backdrop-blur-md border border-white/10 rounded-full px-4 py-2 sm:py-2.5 shadow-lg text-white text-[9px] sm:text-[11px] font-bold tracking-widest hover:bg-black/50 active:scale-95 transition-all flex items-center gap-2"
         >
           <span>{currentYear}年度</span>
           <span className="text-sky-400 mx-1">|</span>
