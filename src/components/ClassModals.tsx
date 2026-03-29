@@ -60,6 +60,12 @@ interface ClassAddModalProps {
   classes: ClassInfo[];
 }
 
+const isSameColor = (color1: string, color2: string) => {
+  if (!color1 || !color2) return color1 === color2;
+  const getBase = (c: string) => c.split(' ').filter(p => p.startsWith('bg-[')).join(' ');
+  return getBase(color1) === getBase(color2);
+};
+
 export const ClassAddModal: React.FC<ClassAddModalProps> = ({ isOpen, isClosing, onClose, onSave, classes }) => {
   const [syllabusText, setSyllabusText] = useState('');
   const [inputColor, setInputColor] = useState(PRESET_COLORS[0].id);
@@ -306,9 +312,9 @@ export const ClassAddModal: React.FC<ClassAddModalProps> = ({ isOpen, isClosing,
                   key={colorObj.id} 
                   type="button" 
                   onClick={() => setInputColor(colorObj.id)} 
-                  className={['w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 transition-transform duration-200 active:scale-90 flex items-center justify-center', inputColor === colorObj.id ? 'color-picker-active scale-110' : 'border-transparent opacity-80', colorObj.display].join(' ')} 
+                  className={['w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 transition-transform duration-200 active:scale-90 flex items-center justify-center', isSameColor(inputColor, colorObj.id) ? 'color-picker-active scale-110' : '!border-none opacity-80', colorObj.display].join(' ')} 
                 >
-                  {inputColor === colorObj.id && (
+                  {isSameColor(inputColor, colorObj.id) && (
                     <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                     </svg>
@@ -433,7 +439,7 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
         <div className="flex flex-col items-center mb-8 mt-6">
           <div className="flex flex-wrap gap-2 justify-center mb-4">
             {(cls.class_schedules && cls.class_schedules.length > 0 ? cls.class_schedules : [{ day: cls.day, period: cls.period }]).map((sch, i) => (
-              <div key={i} className={`inline-block px-3 py-1 sm:px-4 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold ${cls.color} shadow-sm border border-white/10 tracking-widest`} style={{ color: '#ffffff' }}>
+              <div key={i} className={`inline-block px-3 py-1 sm:px-4 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold ${cls.color} !border-none shadow-sm tracking-widest class-card`}>
                 {dayMap[sch.day] || sch.day}曜日 {sch.period}限
               </div>
             ))}
@@ -533,8 +539,8 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
               <label className="block text-xs text-slate-400 mb-1 font-bold ml-1">テーマカラー</label>
               <div className="flex flex-wrap gap-3 mt-1 grid grid-cols-7">
                 {PRESET_COLORS.map(colorObj => (
-                  <button key={colorObj.id} type="button" onClick={() => setInputColor(colorObj.id)} className={['w-8 h-8 rounded-full border-2 transition-transform duration-200 active:scale-90 flex items-center justify-center', inputColor === colorObj.id ? 'color-picker-active scale-110' : 'border-transparent opacity-80', colorObj.display].join(' ')} >
-                    {inputColor === colorObj.id && (
+                  <button key={colorObj.id} type="button" onClick={() => setInputColor(colorObj.id)} className={['w-8 h-8 rounded-full border-2 transition-transform duration-200 active:scale-90 flex items-center justify-center', isSameColor(inputColor, colorObj.id) ? 'color-picker-active scale-110' : '!border-none opacity-80', colorObj.display].join(' ')} >
+                    {isSameColor(inputColor, colorObj.id) && (
                       <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                       </svg>
@@ -571,7 +577,7 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
                 { label: '開講元', value: cls.faculty_dept },
                 { label: '授業実施方法', value: cls.class_format }
               ].map((item, idx) => (
-                <div key={idx} className="bg-[#1e293b]/50 border border-[#1e293b] p-4 rounded-xl flex flex-col justify-center shadow-sm">
+                <div key={idx} className="bg-[#1e293b]/50 !border-none p-4 rounded-xl flex flex-col justify-center shadow-sm">
                   <div className="text-[10px] sm:text-xs text-slate-400 font-bold mb-1 tracking-wider">{item.label}</div>
                   <div className="text-sm sm:text-base font-bold text-white tracking-wide">{item.value || '-'}</div>
                 </div>
@@ -579,14 +585,14 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
             </div>
 
             {cls.memo && (
-              <div className="bg-[#1e293b]/50 p-5 rounded-xl border border-[#1e293b] mb-4 shadow-sm h-fit">
+              <div className="bg-[#1e293b]/50 p-5 rounded-xl !border-none mb-4 shadow-sm h-fit">
                 <div className="text-[10px] sm:text-xs text-slate-400 font-bold mb-3 tracking-wider">メモ</div>
                 <pre className="text-sm text-slate-300 whitespace-pre-wrap font-sans leading-relaxed">{cls.memo}</pre>
               </div>
             )}
 
             {(evaluationItems.length > 0 || evalDetailSection) && (
-              <div className="bg-[#1e293b]/50 p-5 rounded-xl border border-[#1e293b] mb-4 shadow-sm">
+              <div className="bg-[#1e293b]/50 p-5 rounded-xl !border-none mb-4 shadow-sm">
                 <div className="text-[10px] sm:text-xs text-slate-400 font-bold mb-3 tracking-wider">評価基準・割合</div>
                 {evaluationItems.length > 0 && <PieChart items={evaluationItems} />}
                 {evalDetailSection && (
@@ -596,7 +602,7 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
             )}
 
             {cls.schedule && (
-              <div className="bg-[#1e293b]/50 p-5 rounded-xl border border-[#1e293b] mb-4 shadow-sm">
+              <div className="bg-[#1e293b]/50 p-5 rounded-xl !border-none mb-4 shadow-sm">
                 <div className="text-[10px] sm:text-xs text-slate-400 font-bold mb-3 tracking-wider">授業計画</div>
                 <pre className="text-xs sm:text-sm text-slate-300 whitespace-pre-wrap font-sans leading-relaxed">{cls.schedule}</pre>
               </div>

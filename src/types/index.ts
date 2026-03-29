@@ -34,20 +34,20 @@ export interface TimetableTermSetting {
 export type TimetableSettingsRecord = Record<string, TimetableTermSetting>;
 
 export const PRESET_COLORS = [
-  { id: 'bg-[#1e293b] text-slate-200 border border-[#1e293b]', display: 'bg-slate-600' },
-  { id: 'bg-[#450a0a] text-red-200 border border-[#450a0a]', display: 'bg-red-800' },
-  { id: 'bg-[#431407] text-orange-200 border border-[#431407]', display: 'bg-orange-800' },
-  { id: 'bg-[#451a03] text-amber-200 border border-[#451a03]', display: 'bg-amber-800' },
-  { id: 'bg-[#1a2e05] text-lime-200 border border-[#1a2e05]', display: 'bg-lime-800' },
-  { id: 'bg-[#022c22] text-emerald-200 border border-[#022c22]', display: 'bg-emerald-800' },
-  { id: 'bg-[#083344] text-cyan-200 border border-[#083344]', display: 'bg-cyan-800' },
-  { id: 'bg-[#0c4a6e] text-sky-200 border border-[#0c4a6e]', display: 'bg-sky-800' },
-  { id: 'bg-[#172554] text-blue-200 border border-[#172554]', display: 'bg-blue-800' },
-  { id: 'bg-[#1e1b4b] text-indigo-200 border border-[#1e1b4b]', display: 'bg-indigo-800' },
-  { id: 'bg-[#2e1065] text-violet-200 border border-[#2e1065]', display: 'bg-violet-800' },
-  { id: 'bg-[#4a044e] text-fuchsia-200 border border-[#4a044e]', display: 'bg-fuchsia-800' },
-  { id: 'bg-[#4c0519] text-rose-200 border border-[#4c0519]', display: 'bg-rose-800' },
-  { id: 'bg-[#831843] text-pink-200 border border-[#831843]', display: 'bg-pink-800' }
+  { id: 'bg-[#1e293b] text-slate-200', display: 'bg-slate-600' },
+  { id: 'bg-[#450a0a] text-red-200', display: 'bg-red-800' },
+  { id: 'bg-[#431407] text-orange-200', display: 'bg-orange-800' },
+  { id: 'bg-[#451a03] text-amber-200', display: 'bg-amber-800' },
+  { id: 'bg-[#1a2e05] text-lime-200', display: 'bg-lime-800' },
+  { id: 'bg-[#022c22] text-emerald-200', display: 'bg-emerald-800' },
+  { id: 'bg-[#083344] text-cyan-200', display: 'bg-cyan-800' },
+  { id: 'bg-[#0c4a6e] text-sky-200', display: 'bg-sky-800' },
+  { id: 'bg-[#172554] text-blue-200', display: 'bg-blue-800' },
+  { id: 'bg-[#1e1b4b] text-indigo-200', display: 'bg-indigo-800' },
+  { id: 'bg-[#2e1065] text-violet-200', display: 'bg-violet-800' },
+  { id: 'bg-[#4a044e] text-fuchsia-200', display: 'bg-fuchsia-800' },
+  { id: 'bg-[#4c0519] text-rose-200', display: 'bg-rose-800' },
+  { id: 'bg-[#831843] text-pink-200', display: 'bg-pink-800' }
 ];
 
 export const formatDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;

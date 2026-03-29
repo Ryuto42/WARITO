@@ -41,7 +41,11 @@ html.theme-light .bg-\[\#1e293b\] {
   color: #0f172a !important;
 }
 
-html.theme-light .text-white, html.theme-light .text-gray-200, html.theme-light .text-gray-300, html.theme-light .text-slate-200 {
+html.theme-light .text-white, html.theme-light .text-gray-200, html.theme-light .text-gray-300, html.theme-light .text-slate-200,
+html.theme-light .text-red-200, html.theme-light .text-orange-200, html.theme-light .text-amber-200, html.theme-light .text-lime-200,
+html.theme-light .text-emerald-200, html.theme-light .text-cyan-200, html.theme-light .text-sky-200, html.theme-light .text-blue-200,
+html.theme-light .text-indigo-200, html.theme-light .text-violet-200, html.theme-light .text-fuchsia-200, html.theme-light .text-rose-200,
+html.theme-light .text-pink-200 {
   color: #0f172a !important;
 }
 
@@ -153,4 +157,12 @@ html.theme-light .bg-pink-800 { background-color: #f9a8d4 !important; }
 }
 html.theme-light .color-picker-active {
   border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+.class-card {
+  border: none !important;
+}
+
+html.theme-light .nav-capsule {
+  background-color: rgba(14, 165, 233, 0.15) !important;
 }
