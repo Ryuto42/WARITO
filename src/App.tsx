@@ -565,9 +565,9 @@ const App = () => {
         .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
       `}</style>
       
-      <div className="max-w-6xl mx-auto relative relative pb-0">
+      <div className="max-w-5xl mx-auto relative relative pb-0">
         <header className="flex justify-center items-center py-4 sm:py-6 px-2">
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-[0.2em] sm:tracking-[0.3em] pl-[0.2em] sm:pl-[0.3em] text-white leading-none drop-shadow-md pt-2">WARITO</h1>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-[0.2em] sm:tracking-[0.3em] pl-[0.2em] sm:pl-[0.3em] text-white leading-none drop-shadow-md pt-2">WARITO</h1>
         </header>
 
         {activeTab === 'timetable' && (
