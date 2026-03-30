@@ -244,7 +244,6 @@ export const ClassAddModal: React.FC<ClassAddModalProps> = ({ isOpen, isClosing,
       return;
     }
     onSave({ ...parsedData, color: inputColor });
-    clearForm();
   };
 
   if (!isOpen && !isClosing) return null;

@@ -23,11 +23,18 @@ const App = () => {
   const [activeTab, setActiveTab] = useState<'timetable' | 'account'>('timetable');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isClosingAdd, setIsClosingAdd] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isClosingProcessing, setIsClosingProcessing] = useState(false);
   const [selectedClass, setSelectedClass] = useState<ClassInfo | null>(null);
   const [isClosingDetail, setIsClosingDetail] = useState(false);
 
-  const [currentYear, setCurrentYear] = useState<number>(2026);
-  const [currentSemester, setCurrentSemester] = useState<string>('春学期');
+  const [currentYear, setCurrentYear] = useState<number>(() => {
+    const saved = localStorage.getItem('waritoCurrentYear');
+    return saved ? parseInt(saved, 10) : 2026;
+  });
+  const [currentSemester, setCurrentSemester] = useState<string>(() => {
+    return localStorage.getItem('waritoCurrentSemester') || '春学期';
+  });
 
   const [timetableSettings, setTimetableSettings] = useState<TimetableSettingsRecord>({});
   
@@ -42,6 +49,23 @@ const App = () => {
     setGlobalAlert(prev => ({ ...prev, isClosing: true }));
     setTimeout(() => setGlobalAlert({ isOpen: false, isClosing: false, msg: '' }), 200);
   };
+
+  const stopProcessing = () => {
+    setIsClosingProcessing(true);
+    setTimeout(() => {
+      setIsProcessing(false);
+      setIsClosingProcessing(false);
+    }, 200);
+  };
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [activeTab]);
+
+  useEffect(() => {
+    localStorage.setItem('waritoCurrentYear', currentYear.toString());
+    localStorage.setItem('waritoCurrentSemester', currentSemester);
+  }, [currentYear, currentSemester]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -161,10 +185,12 @@ const App = () => {
     setAuthError('');
     setAuthSuccess('');
     setAuthLoading(true);
+    setIsProcessing(true);
 
     if (password.length < 6) {
       setAuthError('パスワードは6文字以上で入力してください');
       setAuthLoading(false);
+      setIsProcessing(false);
       return;
     }
 
@@ -198,6 +224,7 @@ const App = () => {
       setAuthError('予期しないエラーが発生しました。もう一度お試しください。');
     } finally {
       setAuthLoading(false);
+      stopProcessing();
     }
   };
 
@@ -206,6 +233,7 @@ const App = () => {
     setAuthError('');
     setAuthSuccess('');
     setAuthLoading(true);
+    setIsProcessing(true);
 
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -222,6 +250,7 @@ const App = () => {
       setAuthError('予期しないエラーが発生しました。もう一度お試しください。');
     } finally {
       setAuthLoading(false);
+      stopProcessing();
     }
   };
 
@@ -250,6 +279,7 @@ const App = () => {
   });
 
   const handleSaveClass = async (payload: Partial<ClassInfo>) => {
+    setIsProcessing(true);
     let finalPayload = { ...payload };
 
     if (!finalPayload.id && finalPayload.name) {
@@ -299,6 +329,7 @@ const App = () => {
         showAppAlert('追加時にエラーが発生しました');
       }
     }
+    stopProcessing();
   };
 
   const handleDeleteClass = async (id: string) => {
@@ -348,6 +379,7 @@ const App = () => {
 
   const handleImportShare = async () => {
     if (!shareImportData || !session) return;
+    setIsProcessing(true);
     const items = shareImportData.classes || [];
     let imported = 0;
     for (const item of items) {
@@ -382,6 +414,7 @@ const App = () => {
       setIsClosingImport(false);
     }, 200);
     showAppAlert(`${imported}件の授業をインポートしました！`);
+    stopProcessing();
   };
 
   const dismissImport = () => {
@@ -634,6 +667,20 @@ const App = () => {
               <p className="text-slate-400 text-sm mb-2 font-bold leading-relaxed">WARITOへのご登録ありがとうございます。</p>
               <p className="text-slate-500 text-xs mb-8 leading-relaxed">シラバスを貼り付けるだけで時間割が完成します。<br/>まずは ＋ ボタンから授業を追加してみましょう！</p>
               <button onClick={closeWelcome} className="w-full py-3.5 bg-gradient-to-r from-sky-500 to-blue-500 hover:from-sky-400 hover:to-blue-400 text-white rounded-xl font-bold transition-all active:scale-95 shadow-lg shadow-sky-500/20 text-sm tracking-widest">はじめる</button>
+            </div>
+          </div>
+        )}
+
+        {(isProcessing || isClosingProcessing) && (
+          <div className={`fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[10000] ${isClosingProcessing ? 'animate-fade-out-overlay' : 'animate-fade-in-overlay'}`}>
+            <div className={`flex flex-col items-center gap-6 ${isClosingProcessing ? 'animate-fade-out-overlay' : 'animate-fade-in-overlay'}`}>
+              <div className="relative w-20 h-20">
+                <div className="absolute inset-0 border-4 border-sky-500/20 rounded-full"></div>
+                <div className="absolute inset-0 border-4 border-t-sky-500 rounded-full animate-spin"></div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-2xl font-black text-white tracking-tighter">W</span>
+                </div>
+              </div>
             </div>
           </div>
         )}
