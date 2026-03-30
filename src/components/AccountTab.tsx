@@ -103,7 +103,7 @@ const AccountTab: React.FC<AccountTabProps> = ({
       </div>
     )}
 
-    <div className="max-w-3xl mx-auto animate-fade-in pb-32 pt-8 px-4 relative">
+    <div className="max-w-3xl mx-auto animate-fade-in pb-24 pt-4 px-4 relative">
       <button 
         onClick={toggleTheme}
         className="absolute top-0 right-4 p-3 bg-[#111111] border border-gray-800 rounded-full shadow-lg text-xl hover:scale-110 active:scale-95 transition-all z-10"
@@ -111,12 +111,14 @@ const AccountTab: React.FC<AccountTabProps> = ({
         {isDarkMode ? '🌙' : '☀️'}
       </button>
 
-      <div className="bg-[#111111] border border-gray-800 rounded-3xl p-8 mb-8 shadow-2xl text-center">
-        <div className="w-20 h-20 bg-gray-900 border border-gray-800 text-sky-400 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl shadow-inner">
-          👤
+      <div className="bg-[#111111] border border-gray-800 rounded-3xl p-6 mb-4 shadow-2xl text-center">
+        <div className="w-20 h-20 bg-gray-900 border border-gray-800 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl shadow-inner overflow-hidden">
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-500 to-blue-500">
+            👤
+          </span>
         </div>
-        <h2 className="text-xl sm:text-2xl font-bold mb-2 text-white">{session?.user?.email}</h2>
-        <p className="text-xs text-gray-500 mb-8">WARITO アカウント</p>
+        <h2 className="text-xl sm:text-2xl font-bold mb-1 text-white">{session?.user?.email}</h2>
+        <p className="text-[10px] text-gray-500 mb-6 font-bold tracking-widest">WARITO アカウント</p>
         
         <div className="flex flex-col gap-4 max-w-sm mx-auto">
           <button onClick={onSignOut} className="w-full bg-[#1A1A1A] hover:bg-[#2A2A2A] border border-gray-700 text-gray-300 hover:text-white font-bold p-3 rounded-xl transition-all">
@@ -131,7 +133,7 @@ const AccountTab: React.FC<AccountTabProps> = ({
         </div>
       </div>
 
-      <div className="bg-[#111111] border border-gray-800 rounded-2xl p-6 mb-8 text-left shadow-xl">
+      <div className="bg-[#111111] border border-gray-800 rounded-2xl p-5 mb-4 text-left shadow-xl">
         <h3 className="text-lg font-bold text-white mb-4 border-b border-gray-800 pb-2">
           🔗 時間割を共有する
         </h3>
@@ -201,7 +203,7 @@ const AccountTab: React.FC<AccountTabProps> = ({
         )}
       </div>
 
-      <div className="bg-[#111111] border border-gray-800 rounded-2xl p-6 mb-8 text-left shadow-xl">
+      <div className="bg-[#111111] border border-gray-800 rounded-2xl p-6 mb-4 text-left shadow-xl">
         <h3 className="text-lg font-bold text-white mb-4 border-b border-gray-800 pb-2">
           {currentYear}年 {currentSemester} の時間割設定
         </h3>
@@ -273,7 +275,7 @@ const AccountTab: React.FC<AccountTabProps> = ({
       </div>
 
       {uniqueFaculties.length > 0 && (
-        <div className="bg-[#111111] border border-gray-800 rounded-2xl p-4 mb-8 shadow-xl">
+        <div className="bg-[#111111] border border-gray-800 rounded-2xl p-4 mb-4 shadow-xl">
           <button 
             onClick={() => setFacultyColorsExpanded(!facultyColorsExpanded)} 
             className="w-full flex items-center justify-between text-sm font-bold text-gray-200 p-2 hover:text-white transition-colors"

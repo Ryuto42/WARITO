@@ -157,7 +157,7 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
 
       <div className={`fixed left-1/2 -translate-x-1/2 z-[50] transition-all duration-300 ${
         isIOSWebkit 
-          ? 'bottom-[calc(7rem+env(safe-area-inset-bottom))]' 
+          ? 'bottom-[calc(6rem+env(safe-area-inset-bottom))]' 
           : 'bottom-[7.5rem] sm:bottom-[8.5rem]'
       }`}>
         <button 
