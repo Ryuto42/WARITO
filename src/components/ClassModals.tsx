@@ -344,6 +344,7 @@ interface ClassDetailModalProps {
 
 export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosing, onClose, onSave, onDelete }) => {
   const [editMode, setEditMode] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
   const [inputName, setInputName] = useState('');
   const [inputSchedules, setInputSchedules] = useState<{day:string, period:number, room:string}[]>([]);
@@ -411,11 +412,22 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
       <div className={`bg-[#0f172a] border border-[#1e293b] rounded-2xl p-6 sm:p-8 w-full max-w-2xl shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar ${isClosing ? 'animate-slide-down' : 'animate-slide-up'}`} onClick={e => e.stopPropagation()}>
         <button onClick={onClose} className="absolute top-4 right-5 text-slate-500 hover:text-white text-xl p-1 transition-colors">✕</button>
         
-        
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[1100] p-4 backdrop-blur-sm animate-fade-in-overlay" onClick={() => setShowDeleteConfirm(false)}>
+            <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center animate-slide-up" onClick={e => e.stopPropagation()}>
+              <div className="text-red-400 text-3xl mb-4">⚠️</div>
+              <p className="text-white text-sm font-bold mb-6">この授業を削除しますか？<br/>この操作は取り消せません。</p>
+              <div className="flex gap-3">
+                <button onClick={() => setShowDeleteConfirm(false)} className="w-1/2 py-3 bg-[#1e293b] hover:bg-[#334155] text-slate-300 rounded-xl font-bold transition-all active:scale-95 border border-[#1e293b]">キャンセル</button>
+                <button onClick={() => { setShowDeleteConfirm(false); onDelete(cls.id || ''); }} className="w-1/2 py-3 bg-red-500 hover:bg-red-400 text-white rounded-xl font-bold transition-all active:scale-95 shadow-lg shadow-red-500/20">削除する</button>
+              </div>
+            </div>
+          </div>
+        )}
         {!editMode && (
           <div className="absolute top-4 left-6 flex gap-2">
             <button 
-              onClick={() => { if(window.confirm('この授業を削除しますか？')) onDelete(cls.id || ''); }} 
+              onClick={() => setShowDeleteConfirm(true)} 
               className="p-2 bg-red-500 hover:bg-red-400 text-white rounded-lg shadow-lg shadow-red-500/20 transition-all active:scale-95"
               title="削除"
             >

@@ -1,3 +1,5 @@
+'use client'
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { PRESET_COLORS, defaultTimetableSetting } from './types';
@@ -281,6 +283,13 @@ const App = () => {
   const handleSaveClass = async (payload: Partial<ClassInfo>) => {
     setIsProcessing(true);
     let finalPayload = { ...payload };
+
+    if (finalPayload.class_format && finalPayload.class_format.includes('オンデマンド')) {
+      finalPayload.room = 'オンデマ';
+      if (finalPayload.class_schedules) {
+        finalPayload.class_schedules = finalPayload.class_schedules.map(s => ({ ...s, room: 'オンデマ' }));
+      }
+    }
 
     if (!finalPayload.id && finalPayload.name) {
       const { data: existing } = await supabase.from('classes')

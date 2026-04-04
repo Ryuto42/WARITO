@@ -20,7 +20,7 @@ Paste syllabus text to auto-extract course info, or add classes manually — all
 |---|---|
 | Frontend | React 19 + TypeScript |
 | Styling | Tailwind CSS 3 |
-| Build Tool | Vite 8 |
+| Framework | Next.js 16 (App Router) |
 | Backend / Auth / DB | Supabase (PostgreSQL) |
 
 ## 📖 Usage
