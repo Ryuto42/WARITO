@@ -199,7 +199,7 @@ export const ClassAddModal: React.FC<ClassAddModalProps> = ({ isOpen, isClosing,
       const next = { ...prev };
 
       const maybeUpdate = (key: keyof ClassInfo, value: any) => {
-        if (!value) return;
+        if (value === undefined || value === null) return;
         if (editedFields.has(key)) {
           if (prev[key] !== value) collisionMessage = true;
         } else {
