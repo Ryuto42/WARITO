@@ -358,6 +358,12 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
   const [inputEvaluation, setInputEvaluation] = useState('');
   const [inputSchedule, setInputSchedule] = useState('');
 
+  // 別の授業がクリックされたらeditModeをリセット
+  useEffect(() => {
+    setEditMode(false);
+    setShowDeleteConfirm(false);
+  }, [cls?.id]);
+
   useEffect(() => {
     if (cls && !editMode) {
       setInputName(cls.name || '');
