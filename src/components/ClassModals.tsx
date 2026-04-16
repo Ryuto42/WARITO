@@ -1,6 +1,72 @@
 import React, { useState, useEffect } from 'react';
 import { PRESET_COLORS, dayMap } from '../types';
-import type { ClassInfo } from '../types';
+import type { ClassInfo, ClassGradeStat } from '../types';
+import { fetchClassGradeStats } from '../utils/gradeStats';
+
+const GradeStatCard = ({ stat }: { stat: ClassGradeStat }) => {
+  const gradeItems = [
+    { name: 'A', value: stat.a_percent || 0, color: 'bg-emerald-500' },
+    { name: 'B', value: stat.b_percent || 0, color: 'bg-sky-500' },
+    { name: 'C', value: stat.c_percent || 0, color: 'bg-yellow-500' },
+    { name: 'D', value: stat.d_percent || 0, color: 'bg-orange-500' },
+    { name: 'F', value: stat.f_percent || 0, color: 'bg-red-500' },
+    { name: '他', value: stat.other_percent || 0, color: 'bg-slate-500' }
+  ].filter(i => i.value > 0);
+
+  return (
+    <div className="bg-[#1e293b]/40 p-4 sm:p-5 rounded-2xl border border-white/5 mb-4 last:mb-0 shadow-sm backdrop-blur-sm group hover:bg-[#1e293b]/60 transition-all">
+      <div className="text-[10px] sm:text-xs text-slate-400 font-bold mb-3 tracking-wider flex justify-between items-start">
+        <div className="flex flex-col gap-1">
+          <span className="text-slate-200">{stat.year}年度 {stat.semester}</span>
+          <span className="text-[9px] text-slate-500 uppercase tracking-tighter">{stat.instructor}</span>
+        </div>
+        <div className="text-right">
+          <span className="text-sky-400 font-black block">{stat.student_count}<span className="text-[9px] ml-0.5">人</span></span>
+        </div>
+      </div>
+      
+      <div className="flex items-center gap-3 mb-4">
+        <div className="flex flex-col">
+          <span className="text-2xl font-black text-white leading-none">{stat.gpa}</span>
+          <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1">Avg GPA</span>
+        </div>
+        
+        <div className="flex-1 h-2 sm:h-2.5 flex rounded-full overflow-hidden shadow-inner bg-slate-900/50">
+           {gradeItems.map((item, idx) => (
+              <div key={idx} style={{ width: `${item.value}%` }} className={`${item.color} h-full transition-all border-r border-slate-900/10 last:border-0`} />
+           ))}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-x-3 gap-y-1.5 text-[9px] sm:text-[10px]">
+         {gradeItems.map((item, idx) => (
+            <div key={idx} className="flex items-center gap-1.2 text-slate-400 font-medium">
+               <span className={`w-1.5 h-1.5 rounded-full ${item.color} opacity-80`}></span>
+               {item.name} <span className="text-slate-200 font-bold ml-0.5">{item.value}%</span>
+            </div>
+         ))}
+      </div>
+    </div>
+  );
+};
+
+const GradeStatDisplay = ({ stats }: { stats: ClassGradeStat[] }) => {
+  if (!stats || stats.length === 0) return null;
+  
+  return (
+    <div className="mt-8 pt-6 border-t border-white/5">
+      <div className="flex items-center gap-2 mb-4">
+        <span className="text-xs font-black text-slate-500 uppercase tracking-[0.2em]">Historical Grade Stats</span>
+        <div className="h-px flex-1 bg-white/5"></div>
+      </div>
+      <div className="space-y-3">
+        {stats.map((s, idx) => (
+          <GradeStatCard key={s.id || idx} stat={s} />
+        ))}
+      </div>
+    </div>
+  );
+};
 
 const PieChart = ({ items }: { items: { name: string; percent: number }[] }) => {
   let cumulativePercent = 0;
@@ -162,6 +228,7 @@ export const ClassAddModal: React.FC<ClassAddModalProps> = ({ isOpen, isClosing,
     const parsedClassFormat = extract(/授業実施方法[\s\S]*?／Class format\s+([^／\n]+)/);
     const creditsStr = extract(/単位数／Credits\s+([0-9]+)/);
     const parsedCredits = creditsStr ? parseInt(creditsStr, 10) : 0;
+    const parsedSubjectCode = extract(/授業コード／Course code\s+([^／\n]+)/) || extract(/科目コード／Subject code\s+([^／\n]+)/);
     const parsedUpdatedAt = extract(/更新日／Date of renewal\s+([0-9/]+)/);
     
     const evalMatch = text.match(/評価基準・割合[\s\S]*?／Evaluation\s*([\s\S]*?)(?=テキスト|自由記述|参考書|講義スケジュール|$)/);
@@ -219,6 +286,7 @@ export const ClassAddModal: React.FC<ClassAddModalProps> = ({ isOpen, isClosing,
       maybeUpdate('schedule', parsedSchedule);
       maybeUpdate('credits', parsedCredits);
       maybeUpdate('evaluation', parsedEvaluation);
+      maybeUpdate('subject_code', parsedSubjectCode);
       maybeUpdate('updated_at', parsedUpdatedAt);
 
       if (parsedClassFormat && parsedClassFormat.includes('オンデマンド')) {
@@ -358,11 +426,31 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
   const [inputEvaluation, setInputEvaluation] = useState('');
   const [inputSchedule, setInputSchedule] = useState('');
 
-  // 別の授業がクリックされたらeditModeをリセット
+  const [gradeStats, setGradeStats] = useState<ClassGradeStat[]>([]);
+
   useEffect(() => {
     setEditMode(false);
     setShowDeleteConfirm(false);
   }, [cls?.id]);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      if (!cls || editMode) return;
+      try {
+        const data = await fetchClassGradeStats();
+        // Match by subject name OR subject code
+        const matched = data.filter(s => 
+          s.subject_name === cls.name || 
+          (cls.subject_code && s.subject_code === cls.subject_code)
+        );
+        setGradeStats(matched.sort((a, b) => {
+          if (b.year !== a.year) return b.year - a.year;
+          return b.semester === '秋学期' ? 1 : -1;
+        }));
+      } catch(e) {}
+    };
+    fetchStats();
+  }, [cls?.name, editMode]);
 
   useEffect(() => {
     if (cls && !editMode) {
@@ -624,6 +712,8 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
                 <pre className="text-xs sm:text-sm text-slate-300 whitespace-pre-wrap font-sans leading-relaxed">{cls.schedule}</pre>
               </div>
             )}
+
+            <GradeStatDisplay stats={gradeStats} />
 
             {cls.updated_at && (
               <div className="mt-8 text-right text-[10px] text-slate-600 font-medium tracking-wider">
