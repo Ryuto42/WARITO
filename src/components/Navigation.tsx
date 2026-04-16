@@ -1,8 +1,8 @@
 import React from 'react';
 
 interface NavigationProps {
-  activeTab: 'timetable' | 'account';
-  setActiveTab: (tab: 'timetable' | 'account') => void;
+  activeTab: 'timetable' | 'grades' | 'account';
+  setActiveTab: (tab: 'timetable' | 'grades' | 'account') => void;
   onAddClick: () => void;
 }
 
@@ -26,11 +26,11 @@ const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab, onAddC
             : 'bottom-10'
         }`}
       >
-        <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-full h-14 flex items-center shadow-2xl relative w-64 pointer-events-auto">
+        <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-full h-14 flex items-center shadow-2xl relative w-80 pointer-events-auto">
           <div 
-            className="absolute top-1.5 bottom-1.5 w-[calc(50%-6px)] bg-white/20 rounded-full transition-transform duration-300 ease-out z-0 nav-capsule"
+            className="absolute top-1.5 bottom-1.5 w-[calc(33.333%-4px)] bg-white/20 rounded-full transition-transform duration-300 ease-out z-0 nav-capsule"
             style={{ 
-              transform: activeTab === 'account' ? 'translateX(100%) translateX(6px)' : 'translateX(6px)' 
+              transform: activeTab === 'account' ? 'translateX(200%) translateX(6px)' : activeTab === 'grades' ? 'translateX(100%) translateX(6px)' : 'translateX(6px)' 
             }}
           />
           
@@ -39,6 +39,13 @@ const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab, onAddC
             className={`flex-1 flex items-center justify-center relative z-10 h-full rounded-full transition-colors duration-200 font-bold text-xs tracking-wider ${activeTab === 'timetable' ? 'text-sky-400' : 'text-slate-400 hover:text-white'}`}
           >
             時間割
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('grades')}
+            className={`flex-1 flex items-center justify-center relative z-10 h-full rounded-full transition-colors duration-200 font-bold text-xs tracking-wider ${activeTab === 'grades' ? 'text-sky-400' : 'text-slate-400 hover:text-white'}`}
+          >
+            成績
           </button>
           
           <button 

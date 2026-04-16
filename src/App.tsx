@@ -3,11 +3,13 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { PRESET_COLORS, defaultTimetableSetting } from './types';
-import type { ClassInfo, TimetableTermSetting, TimetableSettingsRecord } from './types';
+import type { ClassInfo, TimetableTermSetting, TimetableSettingsRecord, GradeInfo } from './types';
 import TimetableTab from './components/TimetableTab';
 import AccountTab from './components/AccountTab';
 import Navigation from './components/Navigation';
 import { ClassAddModal, ClassDetailModal } from './components/ClassModals';
+import { GradeAddModal } from './components/GradeModals';
+import GradesTab from './components/GradesTab';
 import pako from 'pako';
 
 const App = () => {
@@ -22,9 +24,12 @@ const App = () => {
   const [authSuccess, setAuthSuccess] = useState('');
 
   const [classes, setClasses] = useState<ClassInfo[]>([]);
-  const [activeTab, setActiveTab] = useState<'timetable' | 'account'>('timetable');
+  const [grades, setGrades] = useState<GradeInfo[]>([]);
+  const [activeTab, setActiveTab] = useState<'timetable' | 'grades' | 'account'>('timetable');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isClosingAdd, setIsClosingAdd] = useState(false);
+  const [isGradeAddModalOpen, setIsGradeAddModalOpen] = useState(false);
+  const [isClosingGradeAdd, setIsClosingGradeAdd] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isClosingProcessing, setIsClosingProcessing] = useState(false);
   const [selectedClass, setSelectedClass] = useState<ClassInfo | null>(null);
@@ -72,7 +77,10 @@ const App = () => {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      if (session) fetchClasses(session.user.id);
+      if (session) {
+        fetchClasses(session.user.id);
+        fetchGrades(session.user.id);
+      }
       setLoading(false);
     });
 
@@ -80,6 +88,7 @@ const App = () => {
       setSession(session);
       if (session) {
         fetchClasses(session.user.id);
+        fetchGrades(session.user.id);
         if (!localStorage.getItem('waritoWelcomeDone')) {
           setShowWelcome(true);
           localStorage.setItem('waritoWelcomeDone', 'true');
@@ -179,6 +188,12 @@ const App = () => {
   const fetchClasses = async (userId: string) => {
     const { data, error } = await supabase.from('classes').select('*').eq('user_id', userId);
     if (data) setClasses(data);
+    if (error) console.error(error);
+  };
+
+  const fetchGrades = async (userId: string) => {
+    const { data, error } = await supabase.from('grades').select('*').eq('user_id', userId);
+    if (data) setGrades(data);
     if (error) console.error(error);
   };
 
@@ -384,6 +399,70 @@ const App = () => {
       setIsAddModalOpen(false);
       setIsClosingAdd(false);
     }, 200);
+  };
+
+  const closeGradeAddModalWithAnim = () => {
+    setIsClosingGradeAdd(true);
+    setTimeout(() => {
+      setIsGradeAddModalOpen(false);
+      setIsClosingGradeAdd(false);
+    }, 200);
+  };
+
+  const handleSaveGrades = async (newGrades: Omit<GradeInfo, 'id' | 'user_id' | 'created_at' | 'updated_at'>[]) => {
+    setIsProcessing(true);
+    
+    const { data: existingGrades } = await supabase.from('grades').select('*').eq('user_id', session.user.id);
+    
+    const toInsert = [];
+    const toUpdate = [];
+
+    for (const ng of newGrades) {
+       const existing = existingGrades?.find(eg => eg.subject_code === ng.subject_code && eg.year === ng.year && eg.semester === ng.semester);
+       if (existing) {
+           let changed = false;
+           for (const key of Object.keys(ng)) {
+               const typedKey = key as keyof typeof ng;
+               if (ng[typedKey] !== existing[key] && !['id', 'user_id', 'created_at', 'updated_at'].includes(key)) {
+                   changed = true;
+                   break;
+               }
+           }
+           if (changed) {
+               toUpdate.push({ ...ng, id: existing.id, user_id: session.user.id });
+           }
+       } else {
+           toInsert.push({ ...ng, user_id: session.user.id });
+       }
+    }
+
+    let hasError = false;
+
+    if (toUpdate.length > 0) {
+       for (const u of toUpdate) {
+          const { error } = await supabase.from('grades').update(u).eq('id', u.id);
+          if (error) {
+              console.error(error);
+              hasError = true;
+          }
+       }
+    }
+    if (toInsert.length > 0) {
+       const { error } = await supabase.from('grades').insert(toInsert);
+       if (error) {
+           console.error(error);
+           hasError = true;
+       }
+    }
+
+    if (!hasError) {
+      fetchGrades(session.user.id);
+      closeGradeAddModalWithAnim();
+      showAppAlert(`更新: ${toUpdate.length}件、新規追加: ${toInsert.length}件 の成績を保存しました！`);
+    } else {
+      showAppAlert('成績の保存時にエラーが発生しました');
+    }
+    stopProcessing();
   };
 
   const handleImportShare = async () => {
@@ -636,12 +715,25 @@ const App = () => {
           />
         )}
 
+        {activeTab === 'grades' && (
+          <GradesTab 
+            grades={grades}
+          />
+        )}
+
         <ClassAddModal 
           isOpen={isAddModalOpen} 
           isClosing={isClosingAdd}
           onClose={closeAddModalWithAnim}
           onSave={handleSaveClass}
           classes={classes}
+        />
+
+        <GradeAddModal 
+          isOpen={isGradeAddModalOpen} 
+          isClosing={isClosingGradeAdd}
+          onClose={closeGradeAddModalWithAnim}
+          onSave={handleSaveGrades}
         />
 
         <ClassDetailModal 
@@ -655,7 +747,13 @@ const App = () => {
         <Navigation 
           activeTab={activeTab} 
           setActiveTab={setActiveTab} 
-          onAddClick={() => setIsAddModalOpen(true)}
+          onAddClick={() => {
+            if (activeTab === 'grades') {
+              setIsGradeAddModalOpen(true);
+            } else {
+              setIsAddModalOpen(true);
+            }
+          }}
         />
         
         {(globalAlert.isOpen || globalAlert.isClosing) && (
