@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react';
-import type { GradeInfo } from '../types';
+import React, { useMemo, useState, useEffect } from 'react';
+import type { GradeInfo, ClassGradeStat } from '../types';
+import { fetchClassGradeStats } from '../utils/gradeStats';
 
 interface GradesTabProps {
   grades: GradeInfo[];
@@ -133,9 +134,77 @@ const GpaChart = ({ activeGrades }: { activeGrades: GradeInfo[] }) => {
   );
 };
 
+const ExpandedGradeStat = ({ grade }: { grade: GradeInfo }) => {
+  const [stats, setStats] = useState<ClassGradeStat[]>([]);
+  const [loading, setLoading] = useState(true);
 
-const GradeTable = ({ grades, showEmptyState = true }: { grades: GradeInfo[], showEmptyState?: boolean }) => (
-  <div className="overflow-x-auto custom-scrollbar">
+  useEffect(() => {
+    const fetchStats = async () => {
+      setLoading(true);
+      try {
+        const allStats = await fetchClassGradeStats();
+        let matched: ClassGradeStat[] = [];
+        if (grade.subject_code && grade.subject_code.trim()) {
+           matched = allStats.filter(s => s.subject_code === grade.subject_code || s.subject_name === grade.subject_name);
+        } else {
+           matched = allStats.filter(s => s.subject_name === grade.subject_name);
+        }
+        setStats(matched);
+      } catch(e) {}
+      setLoading(false);
+    };
+    fetchStats();
+  }, [grade]);
+
+  if (loading) {
+    return <div className="p-4 text-center text-xs text-slate-400 animate-pulse">読み込み中...</div>;
+  }
+  if (!stats || stats.length === 0) {
+    return <div className="p-4 text-center text-xs text-slate-400">過去のデータがありません</div>;
+  }
+
+  const stat = stats[0];
+  const gradeItems = [
+    { name: 'A', value: stat.a_percent || 0, color: 'bg-emerald-500' },
+    { name: 'B', value: stat.b_percent || 0, color: 'bg-sky-500' },
+    { name: 'C', value: stat.c_percent || 0, color: 'bg-yellow-500' },
+    { name: 'D', value: stat.d_percent || 0, color: 'bg-orange-500' },
+    { name: 'F', value: stat.f_percent || 0, color: 'bg-red-500' },
+    { name: '他', value: stat.other_percent || 0, color: 'bg-slate-500' }
+  ].filter(i => i.value > 0);
+
+  return (
+    <div className="p-5 bg-black/20 shadow-inner">
+      <div className="flex justify-between text-[10px] sm:text-xs text-slate-400 font-bold mb-3 tracking-wider">
+        <span>過去の成績分布 ({stat.year}年度 {stat.semester})</span>
+        <span className="text-sky-400 font-bold">受講者数: {stat.student_count}人</span>
+      </div>
+      <div className="flex items-end gap-2 mb-4">
+        <span className="text-2xl font-black text-white">{stat.gpa}</span>
+        <span className="text-[10px] text-slate-400 font-bold pb-1 mb-0.5">平均GPA</span>
+      </div>
+      <div className="h-3 w-full max-w-lg flex rounded-full overflow-hidden mb-3 shadow-inner bg-slate-800">
+         {gradeItems.map((item, idx) => (
+            <div key={idx} style={{ width: `${item.value}%` }} className={`${item.color} h-full transition-all border-r border-slate-900/40 last:border-0`} />
+         ))}
+      </div>
+      <div className="flex flex-wrap gap-x-4 gap-y-2 text-[10px] sm:text-xs">
+         {gradeItems.map((item, idx) => (
+            <div key={idx} className="flex items-center gap-1.5 text-slate-300 font-bold tracking-wider">
+               <span className={`w-2 h-2 rounded-full shadow-sm ${item.color}`}></span>
+               {item.name} <span className="text-slate-400 font-medium">{item.value}%</span>
+            </div>
+         ))}
+      </div>
+    </div>
+  );
+};
+
+const GradeTable = ({ grades, showEmptyState = true }: { grades: GradeInfo[], showEmptyState?: boolean }) => {
+  const [expandedId, setExpandedId] = useState<string|null>(null);
+
+  return (
+    <div className="overflow-x-auto custom-scrollbar">
     <table className="w-full text-left border-collapse whitespace-nowrap">
       <thead>
         <tr className="bg-white/5 text-slate-400 text-[11px] uppercase tracking-wider">
@@ -150,17 +219,29 @@ const GradeTable = ({ grades, showEmptyState = true }: { grades: GradeInfo[], sh
       </thead>
       <tbody className="divide-y divide-white/5 text-slate-200 text-xs sm:text-sm">
         {grades.map((g) => (
-          <tr key={g.id} className="hover:bg-white/5 transition-colors">
-            <td className="px-4 py-4">{g.year || '-'}</td>
-            <td className="px-4 py-4">{g.semester || '-'}</td>
-            <td className="px-4 py-4 text-slate-200 text-[10px] sm:text-[11px] max-w-[180px] break-words whitespace-normal" title={g.category_medium}>{g.category_medium || '-'}</td>
-            <td className="px-4 py-4 font-bold text-white max-w-[200px] truncate" title={g.subject_name}>{g.subject_name}</td>
-            <td className="px-4 py-4 text-slate-400 max-w-[120px] truncate" title={g.instructor}>{g.instructor || '-'}</td>
-            <td className="px-4 py-4 text-center font-bold text-slate-300">{g.credits !== undefined ? g.credits : '-'}</td>
-            <td className="px-4 py-4 text-center">
-              <GradeBadge grade={g.grade} />
-            </td>
-          </tr>
+          <React.Fragment key={g.id}>
+            <tr 
+              onClick={() => setExpandedId(expandedId === g.id ? null : g.id)}
+              className="hover:bg-white/5 transition-colors cursor-pointer group"
+            >
+              <td className="px-4 py-4">{g.year || '-'}</td>
+              <td className="px-4 py-4">{g.semester || '-'}</td>
+              <td className="px-4 py-4 text-slate-200 text-[10px] sm:text-[11px] max-w-[180px] break-words whitespace-normal" title={g.category_medium}>{g.category_medium || '-'}</td>
+              <td className="px-4 py-4 font-bold text-white max-w-[200px] truncate" title={g.subject_name}>{g.subject_name}</td>
+              <td className="px-4 py-4 text-slate-400 max-w-[120px] truncate" title={g.instructor}>{g.instructor || '-'}</td>
+              <td className="px-4 py-4 text-center font-bold text-slate-300">{g.credits !== undefined ? g.credits : '-'}</td>
+              <td className="px-4 py-4 text-center">
+                <GradeBadge grade={g.grade} />
+              </td>
+            </tr>
+            {expandedId === g.id && (
+              <tr>
+                <td colSpan={7} className="p-0 border-l-[3px] border-sky-500/80 animate-fade-in text-left">
+                  <ExpandedGradeStat grade={g} />
+                </td>
+              </tr>
+            )}
+          </React.Fragment>
         ))}
         {grades.length === 0 && showEmptyState && (
           <tr>
@@ -172,7 +253,8 @@ const GradeTable = ({ grades, showEmptyState = true }: { grades: GradeInfo[], sh
       </tbody>
     </table>
   </div>
-);
+  );
+};
 
 const GradesTab: React.FC<GradesTabProps> = ({ grades }) => {
   const [filterYear, setFilterYear] = useState<string>('All');

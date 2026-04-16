@@ -16,6 +16,7 @@ export interface ClassInfo {
   instructor?: string;
   semester?: string;
   academic_year?: number;
+  subject_code?: string;
   memo?: string;
   class_schedules?: { day: string; period: number; room: string }[];
 }
@@ -38,6 +39,23 @@ export interface GradeInfo {
   pass_status?: string;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface ClassGradeStat {
+  id: string;
+  year: number;
+  semester: string;
+  subject_code: string;
+  subject_name: string;
+  instructor: string;
+  student_count: number;
+  a_percent: number;
+  b_percent: number;
+  c_percent: number;
+  d_percent: number;
+  f_percent: number;
+  other_percent: number;
+  gpa: number;
 }
 
 export interface PeriodTime {

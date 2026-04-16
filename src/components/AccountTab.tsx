@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { dayMap, PRESET_COLORS } from '../types';
-import type { ClassInfo, TimetableTermSetting } from '../types';
-
+import type { ClassInfo, TimetableTermSetting, ClassGradeStat } from '../types';
+import Papa from 'papaparse';
 
 interface AccountTabProps {
   session: any;
@@ -30,6 +30,126 @@ const AccountTab: React.FC<AccountTabProps> = ({
   const [timeSettingsExpanded, setTimeSettingsExpanded] = useState(false);
   const [facultyColorsExpanded, setFacultyColorsExpanded] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState('');
+
+  const isAdmin = 
+    session?.user?.user_metadata?.role === 'admin' || 
+    session?.user?.app_metadata?.role === 'admin' ||
+    session?.user?.email === 'admin@example.com';
+
+  const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    setUploadStatus('解析中...');
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      encoding: "Shift-JIS",
+      transformHeader: (header) => header.trim(),
+      complete: async (results) => {
+        try {
+          const stats: Partial<ClassGradeStat>[] = [];
+          const rows = results.data as Record<string, string>[];
+
+          if (rows.length > 0) {
+             const detectedHeaders = Object.keys(rows[0]);
+             console.log('Detected Headers:', detectedHeaders);
+          }
+
+          const getVal = (row: Record<string, string>, keys: string[]) => {
+            for (const k of keys) {
+              const rowVal = row[k];
+              if (rowVal !== undefined && rowVal !== null) return String(rowVal).trim();
+            }
+            // Fuzzy search for header keys if exact match failed
+            const rowKeys = Object.keys(row);
+            for (const key of keys) {
+               const foundKey = rowKeys.find(rk => rk.includes(key) || key.includes(rk));
+               if (foundKey) return String(row[foundKey]).trim();
+            }
+            return '';
+          };
+
+          for (const row of rows) {
+            const yearStr = getVal(row, ['年度', 'year', 'Year', '年']);
+            const semester = getVal(row, ['学期', 'semester', 'Semester', '期']);
+            const subjectCode = getVal(row, ['授業コード', '授業コー', 'subject_code', '科目コード']);
+            const subjectName = getVal(row, ['授業名', '科目名', 'subject_name', 'name']);
+            const instructor = getVal(row, ['教員名', '担当教員', 'instructor', '教員']);
+            const studentCountStr = getVal(row, ['人数', '受講者数', 'student_count']);
+            
+            const aStr = getVal(row, ['A', 'a', 'A_percent']);
+            const bStr = getVal(row, ['B', 'b', 'B_percent']);
+            const cStr = getVal(row, ['C', 'c', 'C_percent']);
+            const dStr = getVal(row, ['D', 'd', 'D_percent']);
+            const fStr = getVal(row, ['F', 'f', 'F_percent']);
+            const otherStr = getVal(row, ['他', 'その他', 'other']);
+            const gpaStr = getVal(row, ['平均値', 'GPA', 'gpa', '平均GPA', '平均']);
+
+            if (!subjectName || !studentCountStr) continue;
+
+            const year = parseInt(yearStr.replace(/[^0-9]/g, ''), 10) || 2023;
+
+            stats.push({
+              year,
+              semester,
+              subject_code: subjectCode,
+              subject_name: subjectName,
+              instructor,
+              student_count: parseInt(studentCountStr.replace(/[^0-9]/g, ''), 10) || 0,
+              a_percent: parseFloat(aStr) || 0,
+              b_percent: parseFloat(bStr) || 0,
+              c_percent: parseFloat(cStr) || 0,
+              d_percent: parseFloat(dStr) || 0,
+              f_percent: parseFloat(fStr) || 0,
+              other_percent: parseFloat(otherStr) || 0,
+              gpa: parseFloat(gpaStr) || 0,
+            });
+          }
+
+          if (stats.length === 0) {
+            const detected = rows.length > 0 ? `見つかった列名: ${Object.keys(rows[0]).join(', ')}` : '空のファイルです';
+            setUploadStatus(`有効なデータが見つかりませんでした。${detected}`);
+            setIsUploading(false);
+            return;
+          }
+
+          // Deduplicate rows based on conflict keys to avoid "ON CONFLICT DO UPDATE command cannot affect row a second time"
+          const uniqueStatsMap = new Map();
+          stats.forEach(s => {
+             const key = `${s.subject_name}-${s.year}-${s.semester}-${s.instructor}`;
+             uniqueStatsMap.set(key, s);
+          });
+          const uniqueStats = Array.from(uniqueStatsMap.values());
+
+          setUploadStatus(`アップロード中... (${uniqueStats.length}件)`);
+
+          const { error } = await supabase
+            .from('class_grade_stats')
+            .upsert(uniqueStats, { onConflict: 'subject_name,year,semester,instructor' });
+
+          if (error) {
+            console.error(error);
+            setUploadStatus(`エラー: ${error.message}`);
+          } else {
+            setUploadStatus(`成功しました！ ${stats.length}件のデータを更新しました。`);
+          }
+        } catch (err: any) {
+          setUploadStatus(`エラーが発生しました: ${err.message}`);
+        } finally {
+          setIsUploading(false);
+        }
+      },
+      error: (err) => {
+        setUploadStatus(`解析エラー: ${err.message}`);
+        setIsUploading(false);
+      }
+    });
+  };
   
   const openConfirmDelete = () => setConfirmDeleteState({ isOpen: true, isClosing: false });
   const closeConfirmDelete = () => {
@@ -344,6 +464,51 @@ const AccountTab: React.FC<AccountTabProps> = ({
         )}
       </div>
 
+      {isAdmin && (
+        <div className="bg-[#111111] border border-sky-500/30 rounded-2xl p-6 mt-6 shadow-xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-sky-500/5 rounded-full blur-2xl -mr-8 -mt-8"></div>
+          <h3 className="text-lg font-bold text-white mb-4 border-b border-gray-800 pb-2 flex items-center gap-2">
+            <span className="text-sky-400">🛡️</span> 管理者設定
+          </h3>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-bold text-gray-200 mb-2">過去の成績統計CSVをアップロード</label>
+              <p className="text-[10px] text-gray-400 mb-4 leading-relaxed font-bold">
+                「年度, 学期, 授業名, 人数, A, B, C, D, F, 他, 平均値」を含むCSVを選択してください。<br/>
+                同じ授業名・年度・学期・教員名のデータがある場合は自動的に上書きされます。
+              </p>
+              
+              <div className="relative group">
+                <input 
+                  type="file" 
+                  accept=".csv" 
+                  onChange={handleCsvUpload}
+                  disabled={isUploading}
+                  className="hidden" 
+                  id="admin-csv-upload"
+                />
+                <label 
+                  htmlFor="admin-csv-upload"
+                  className={`w-full flex items-center justify-center p-4 border-2 border-dashed border-gray-700 rounded-2xl cursor-pointer transition-all hover:border-sky-500 hover:bg-sky-500/5 ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <div className="flex flex-col items-center">
+                    <span className="text-2xl mb-2">📊</span>
+                    <span className="text-xs font-bold text-gray-400 group-hover:text-sky-400">CSVファイルを選択</span>
+                  </div>
+                </label>
+              </div>
+
+              {uploadStatus && (
+                <div className={`mt-4 p-3 rounded-xl text-xs font-bold ${uploadStatus.includes('成功') ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : uploadStatus.includes('エラー') ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-sky-500/10 text-sky-400 border border-sky-500/20'}`}>
+                  {isUploading && <span className="inline-block animate-spin mr-2">⏳</span>}
+                  {uploadStatus}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
     </>
   );
