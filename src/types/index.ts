@@ -20,6 +20,26 @@ export interface ClassInfo {
   class_schedules?: { day: string; period: number; room: string }[];
 }
 
+export interface GradeInfo {
+  id: string;
+  user_id: string;
+  no?: number;
+  category_large?: string;
+  category_medium?: string;
+  category_small?: string;
+  registration_code?: string;
+  subject_code?: string;
+  subject_name?: string;
+  instructor?: string;
+  credits?: number;
+  year?: number;
+  semester?: string;
+  grade?: string;
+  pass_status?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface PeriodTime {
   start: string;
   end: string;
