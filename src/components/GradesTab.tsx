@@ -51,19 +51,19 @@ const getSemesterRank = (sem: string | undefined): number => {
 const GradeBadge = ({ grade }: { grade: string | undefined }) => {
   if (!grade) return <span className="text-slate-500">-</span>;
   
-  let styles = "bg-slate-500/20 text-slate-400 border border-slate-500/30";
+  let styles = "text-slate-400";
   if (grade === 'S' || grade === 'A') {
-    styles = "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.3)]";
+    styles = "text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.4)]";
   } else if (grade === 'B') {
-    styles = "bg-sky-500/20 text-sky-300 border border-sky-500/40 shadow-[0_0_12px_rgba(14,165,233,0.3)]";
+    styles = "text-sky-400 drop-shadow-[0_0_8px_rgba(14,165,233,0.4)]";
   } else if (grade === 'C') {
-    styles = "bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 shadow-[0_0_12px_rgba(234,179,8,0.3)]";
+    styles = "text-yellow-400 drop-shadow-[0_0_8px_rgba(234,179,8,0.4)]";
   } else if (grade === 'D' || grade === 'F' || grade === '否') {
-    styles = "bg-red-500/20 text-red-300 border border-red-500/40 shadow-[0_0_12px_rgba(239,68,68,0.3)]";
+    styles = "text-red-400 drop-shadow-[0_0_8px_rgba(239,68,68,0.4)]";
   }
 
   return (
-    <div className={`px-3 py-1 rounded-xl text-xs sm:text-sm font-black inline-flex items-center justify-center ${styles}`}>
+    <div className={`text-sm sm:text-base font-black inline-flex items-center justify-center ${styles}`}>
       {grade}
     </div>
   );
@@ -207,14 +207,14 @@ const GradeTable = ({ grades, showEmptyState = true }: { grades: GradeInfo[], sh
     <div className="overflow-x-auto custom-scrollbar">
     <table className="w-full text-left border-collapse whitespace-nowrap">
       <thead>
-        <tr className="bg-white/5 text-slate-400 text-[11px] uppercase tracking-wider">
-          <th className="px-4 py-3 font-bold border-b border-white/5 w-16">年度</th>
-          <th className="px-4 py-3 font-bold border-b border-white/5 w-16">学期</th>
-          <th className="px-4 py-3 font-bold border-b border-white/5 w-40 truncate">中区分</th>
-          <th className="px-4 py-3 font-bold border-b border-white/5 max-w-xs truncate">科目</th>
-          <th className="px-4 py-3 font-bold border-b border-white/5 w-24">教員名</th>
-          <th className="px-4 py-3 font-bold border-b border-white/5 w-12 text-center">単位</th>
-          <th className="px-4 py-3 font-bold border-b border-white/5 w-16 text-center">評価</th>
+        <tr className="bg-white/5 text-slate-400 text-[10px] sm:text-[11px] uppercase tracking-wider">
+          <th className="px-2 sm:px-4 py-2 sm:py-3 font-bold border-b border-white/5 w-12 sm:w-16">年度</th>
+          <th className="px-2 sm:px-4 py-2 sm:py-3 font-bold border-b border-white/5 w-12 sm:w-16">学期</th>
+          <th className="px-2 sm:px-4 py-2 sm:py-3 font-bold border-b border-white/5 w-32 sm:w-40 truncate">中区分</th>
+          <th className="px-2 sm:px-4 py-2 sm:py-3 font-bold border-b border-white/5 max-w-[120px] sm:max-w-xs truncate">科目</th>
+          <th className="px-2 sm:px-4 py-2 sm:py-3 font-bold border-b border-white/5 w-20 sm:w-24">教員名</th>
+          <th className="px-2 sm:px-4 py-2 sm:py-3 font-bold border-b border-white/5 w-10 sm:w-12 text-center">単位</th>
+          <th className="px-2 sm:px-4 py-2 sm:py-3 font-bold border-b border-white/5 w-12 sm:w-16 text-center">評価</th>
         </tr>
       </thead>
       <tbody className="divide-y divide-white/5 text-slate-200 text-xs sm:text-sm">
@@ -222,15 +222,15 @@ const GradeTable = ({ grades, showEmptyState = true }: { grades: GradeInfo[], sh
           <React.Fragment key={g.id}>
             <tr 
               onClick={() => setExpandedId(expandedId === g.id ? null : g.id)}
-              className="hover:bg-white/5 transition-colors cursor-pointer group"
+              className="hover:bg-white/5 transition-colors cursor-pointer group text-[11px] sm:text-xs"
             >
-              <td className="px-4 py-4">{g.year || '-'}</td>
-              <td className="px-4 py-4">{g.semester || '-'}</td>
-              <td className="px-4 py-4 text-slate-200 text-[10px] sm:text-[11px] max-w-[180px] break-words whitespace-normal" title={g.category_medium}>{g.category_medium || '-'}</td>
-              <td className="px-4 py-4 font-bold text-white max-w-[200px] truncate" title={g.subject_name}>{g.subject_name}</td>
-              <td className="px-4 py-4 text-slate-400 max-w-[120px] truncate" title={g.instructor}>{g.instructor || '-'}</td>
-              <td className="px-4 py-4 text-center font-bold text-slate-300">{g.credits !== undefined ? g.credits : '-'}</td>
-              <td className="px-4 py-4 text-center">
+              <td className="px-2 sm:px-4 py-2 sm:py-3">{g.year || '-'}</td>
+              <td className="px-2 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs">{g.semester || '-'}</td>
+              <td className="px-2 sm:px-4 py-2 sm:py-3 text-slate-400 text-[9px] sm:text-[10px] max-w-[120px] sm:max-w-[180px] break-words whitespace-normal" title={g.category_medium}>{g.category_medium || '-'}</td>
+              <td className="px-2 sm:px-4 py-2 sm:py-3 font-bold text-white max-w-[120px] sm:max-w-[200px] truncate" title={g.subject_name}>{g.subject_name}</td>
+              <td className="px-2 sm:px-4 py-2 sm:py-3 text-slate-400 max-w-[80px] sm:max-w-[120px] truncate" title={g.instructor}>{g.instructor || '-'}</td>
+              <td className="px-2 sm:px-4 py-2 sm:py-3 text-center font-bold text-slate-300">{g.credits !== undefined ? g.credits : '-'}</td>
+              <td className="px-2 sm:px-4 py-2 sm:py-3 text-center">
                 <GradeBadge grade={g.grade} />
               </td>
             </tr>

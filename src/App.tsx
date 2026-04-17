@@ -10,6 +10,7 @@ import Navigation from './components/Navigation';
 import { ClassAddModal, ClassDetailModal } from './components/ClassModals';
 import { GradeAddModal } from './components/GradeModals';
 import GradesTab from './components/GradesTab';
+import SearchModal from './components/SearchModal';
 import pako from 'pako';
 
 const App = () => {
@@ -34,6 +35,8 @@ const App = () => {
   const [isClosingProcessing, setIsClosingProcessing] = useState(false);
   const [selectedClass, setSelectedClass] = useState<ClassInfo | null>(null);
   const [isClosingDetail, setIsClosingDetail] = useState(false);
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const [isClosingSearch, setIsClosingSearch] = useState(false);
 
   const [currentYear, setCurrentYear] = useState<number>(() => {
     const saved = localStorage.getItem('waritoCurrentYear');
@@ -409,6 +412,14 @@ const App = () => {
     }, 200);
   };
 
+  const closeSearchModalWithAnim = () => {
+    setIsClosingSearch(true);
+    setTimeout(() => {
+      setIsSearchModalOpen(false);
+      setIsClosingSearch(false);
+    }, 200);
+  };
+
   const handleSaveGrades = async (newGrades: Omit<GradeInfo, 'id' | 'user_id' | 'created_at' | 'updated_at'>[]) => {
     setIsProcessing(true);
     
@@ -686,10 +697,39 @@ const App = () => {
         .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
       `}</style>
       
-      <div className="max-w-5xl mx-auto relative relative pb-0">
-        <header className="flex justify-center items-center py-4 sm:py-6 px-2">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-[0.2em] sm:tracking-[0.3em] pl-[0.2em] sm:pl-[0.3em] text-white leading-none drop-shadow-md pt-2">WARITO</h1>
+      <div className="max-w-5xl mx-auto relative pb-0">
+        <header className="fixed top-0 left-0 right-0 z-[100] pointer-events-none h-24 sm:h-32">
+          <div className="absolute inset-0 bg-[#050811]/40 [.theme-light_&]:bg-white/40 backdrop-blur-md [mask-image:linear-gradient(to_bottom,black_20%,transparent_90%)] -z-10"></div>
+          
+          <div className="max-w-5xl mx-auto flex justify-between items-center py-4 sm:py-6 px-4 sm:px-6">
+            <button 
+              onClick={() => setIsSearchModalOpen(true)}
+              className="w-10 h-10 sm:w-12 sm:h-12 bg-black/30 backdrop-blur-md border border-white/10 text-white rounded-full flex items-center justify-center shadow-lg transition-all hover:scale-105 active:scale-95 pointer-events-auto"
+            >
+              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </button>
+
+            <button 
+              onClick={() => setActiveTab('timetable')}
+              className="pointer-events-auto group touch-manipulation"
+            >
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-[0.2em] sm:tracking-[0.3em] pl-[0.2em] sm:pl-[0.3em] text-white leading-none drop-shadow-md pt-2 transition-transform group-active:scale-95">WARITO</h1>
+            </button>
+
+            <button 
+              onClick={() => setActiveTab('account')}
+              className={`w-10 h-10 sm:w-12 sm:h-12 bg-black/30 backdrop-blur-md border border-white/10 rounded-full flex items-center justify-center shadow-lg transition-all hover:scale-105 active:scale-95 pointer-events-auto ${activeTab === 'account' ? 'ring-2 ring-sky-500' : ''}`}
+            >
+              <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </button>
+          </div>
         </header>
+
+        <div className="mt-20 sm:mt-24">
 
         {activeTab === 'timetable' && (
           <TimetableTab 
@@ -720,6 +760,7 @@ const App = () => {
             grades={grades}
           />
         )}
+        </div>
 
         <ClassAddModal 
           isOpen={isAddModalOpen} 
@@ -742,6 +783,14 @@ const App = () => {
           onClose={closeDetailModalWithAnim}
           onSave={handleSaveClass}
           onDelete={handleDeleteClass}
+        />
+
+        <SearchModal 
+           isOpen={isSearchModalOpen}
+           isClosing={isClosingSearch}
+           onClose={closeSearchModalWithAnim}
+           classes={classes}
+           onClassClick={setSelectedClass}
         />
 
         <Navigation 
