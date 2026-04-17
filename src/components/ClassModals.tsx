@@ -56,7 +56,6 @@ const GradeStatDisplay = ({ stats }: { stats: ClassGradeStat[] }) => {
   return (
     <div className="mt-8 pt-6 border-t border-white/5">
       <div className="flex items-center gap-2 mb-4">
-        <span className="text-xs font-black text-slate-500 uppercase tracking-[0.2em]">Historical Grade Stats</span>
         <div className="h-px flex-1 bg-white/5"></div>
       </div>
       <div className="space-y-3">
@@ -425,6 +424,7 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
   const [inputCredits, setInputCredits] = useState<number>(0);
   const [inputEvaluation, setInputEvaluation] = useState('');
   const [inputSchedule, setInputSchedule] = useState('');
+  const [inputSubjectCode, setInputSubjectCode] = useState('');
 
   const [gradeStats, setGradeStats] = useState<ClassGradeStat[]>([]);
 
@@ -465,6 +465,7 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
       setInputCredits(cls.credits || 0);
       setInputEvaluation(cls.evaluation || '');
       setInputSchedule(cls.schedule || '');
+      setInputSubjectCode(cls.subject_code || '');
     }
   }, [cls, editMode]);
 
@@ -487,6 +488,7 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
       credits: inputCredits,
       evaluation: inputEvaluation,
       schedule: inputSchedule,
+      subject_code: inputSubjectCode,
     });
     setEditMode(false);
   };
@@ -639,6 +641,10 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
             <div>
               <label className="block text-xs text-slate-400 mb-1 font-bold ml-1">開講部署</label>
               <input type="text" value={inputFacultyDept} onChange={e => setInputFacultyDept(e.target.value)} className="w-full bg-[#1e293b]/50 border border-[#334155]/50 rounded-xl p-3 text-white focus:outline-none focus:border-sky-500" />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1 font-bold ml-1">授業コード (シラバスから自動取得されます)</label>
+              <input type="text" value={inputSubjectCode} onChange={e => setInputSubjectCode(e.target.value)} className="w-full bg-[#1e293b]/50 border border-[#334155]/50 rounded-xl p-3 text-white focus:outline-none focus:border-sky-500 font-mono text-sm" />
             </div>
             <div>
               <label className="block text-xs text-slate-400 mb-1 font-bold ml-1">テーマカラー</label>
