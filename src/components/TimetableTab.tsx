@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { formatDays } from '../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { dayMap, formatDays, isArchivedClass } from '../types';
 import type { ClassInfo, TimetableTermSetting } from '../types';
 
 interface TimetableTabProps {
   currentYear: number;
   currentSemester: string;
+  classes: ClassInfo[];
   timetableData: { [day: string]: { [period: number]: ClassInfo[] } };
   setting: TimetableTermSetting;
   onTermChange: (year: number, semester: string) => void;
@@ -14,6 +15,7 @@ interface TimetableTabProps {
 const TimetableTab: React.FC<TimetableTabProps> = ({
   currentYear,
   currentSemester,
+  classes,
   timetableData,
   setting,
   onTermChange,
@@ -29,6 +31,8 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
   const [modalYear, setModalYear] = useState(currentYear);
   const [modalSemester, setModalSemester] = useState(currentSemester);
   const [isIOSWebkit, setIsIOSWebkit] = useState(false);
+  const [slotPicker, setSlotPicker] = useState<{ day: string; period: number } | null>(null);
+  const [isClosingSlotPicker, setIsClosingSlotPicker] = useState(false);
 
   useEffect(() => {
     const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
@@ -85,6 +89,38 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
     }, 200);
   };
 
+  const openSlotPicker = (day: string, period: number) => {
+    setSlotPicker({ day, period });
+  };
+
+  const closeSlotPicker = () => {
+    setIsClosingSlotPicker(true);
+    setTimeout(() => {
+      setSlotPicker(null);
+      setIsClosingSlotPicker(false);
+    }, 200);
+  };
+
+  const availableClasses = useMemo(() => {
+    if (!slotPicker) return [];
+
+    return classes
+      .filter((cls) => {
+        const schedules = cls.class_schedules && cls.class_schedules.length > 0
+          ? cls.class_schedules
+          : [{ day: cls.day, period: cls.period, room: cls.room }];
+
+        return schedules.some((schedule) => schedule.day === slotPicker.day && schedule.period === slotPicker.period);
+      })
+      .sort((a, b) => {
+      const aCurrent = a.academic_year === currentYear && a.semester === currentSemester;
+      const bCurrent = b.academic_year === currentYear && b.semester === currentSemester;
+      if (aCurrent !== bCurrent) return aCurrent ? -1 : 1;
+      if (isArchivedClass(a) !== isArchivedClass(b)) return isArchivedClass(a) ? -1 : 1;
+      return (b.updated_at || b.created_at || '').localeCompare(a.updated_at || a.created_at || '');
+    });
+  }, [classes, currentSemester, currentYear, slotPicker]);
+
   return (
     <div className="max-w-5xl mx-auto pb-32 animate-fade-in relative z-10 text-gray-200">
       <div className="px-0.5 sm:px-1 mt-3 sm:mt-4">
@@ -120,7 +156,11 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
                     key={`${day}-${period}`} 
                     className={`flex-1 relative bg-[#06090D] rounded-xl ${minHeightClass} transition-colors hover:bg-gray-900/50 cursor-pointer overflow-hidden p-0 shadow-inner opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]`}
                     style={{ animationDelay: `${(period - 1) * 50 + displayDays.indexOf(day) * 30}ms` }}
-                    onClick={() => {}}
+                    onClick={() => {
+                      if (dayClasses.length === 0) {
+                        openSlotPicker(day, period);
+                      }
+                    }}
                   >
                     <div className="absolute inset-0 flex flex-col sm:flex-row h-full">
                       {dayClasses.map((cls) => (
@@ -250,9 +290,70 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
           </div>
         </div>
       )}
+
+      {(slotPicker || isClosingSlotPicker) && (
+        <div
+          className={`fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-[150] p-0 sm:p-4 backdrop-blur-sm ${isClosingSlotPicker ? 'animate-fade-out-overlay' : 'animate-fade-in-overlay'}`}
+          onClick={closeSlotPicker}
+        >
+          <div
+            className={`bg-[#0f172a] border-t sm:border border-[#1e293b] rounded-t-[2rem] sm:rounded-3xl w-full max-w-lg shadow-2xl max-h-[85vh] overflow-hidden ${isClosingSlotPicker ? 'animate-slide-down' : 'animate-slide-up'}`}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="p-5 sm:p-6 border-b border-[#1e293b]">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-[10px] text-slate-500 font-bold tracking-[0.2em] uppercase mb-2">Class List</div>
+                  <h3 className="text-lg sm:text-xl font-black text-white">
+                    {slotPicker ? `${dayMap[slotPicker.day] || slotPicker.day}曜日 ${slotPicker.period}限` : ''} の候補
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">登録済み授業の詳細を開けます。</p>
+                </div>
+                <button onClick={closeSlotPicker} className="text-slate-500 hover:text-white text-xl p-1 transition-colors">✕</button>
+              </div>
+            </div>
+
+            <div className="p-3 sm:p-4 overflow-y-auto custom-scrollbar max-h-[65vh] space-y-2">
+              {availableClasses.map((cls) => {
+                const sameTerm = cls.academic_year === currentYear && cls.semester === currentSemester;
+                return (
+                  <button
+                    key={cls.id}
+                    onClick={() => {
+                      onClassClick(cls);
+                      closeSlotPicker();
+                    }}
+                    className="w-full text-left rounded-2xl border border-white/5 bg-[#1e293b]/30 p-4 hover:bg-[#1e293b]/50 hover:border-white/10 transition-all"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-sm sm:text-base font-bold text-white break-words">{cls.name}</div>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400">
+                          <span>{cls.instructor || '教員不明'}</span>
+                          {cls.academic_year && <span>{cls.academic_year}年度</span>}
+                          {cls.semester && <span>{cls.semester}</span>}
+                          {cls.credits !== undefined && <span>{cls.credits}単位</span>}
+                        </div>
+                      </div>
+                      <div className="shrink-0 flex flex-col items-end gap-1">
+                        <span className={`text-[10px] font-bold uppercase tracking-widest ${isArchivedClass(cls) ? 'text-amber-400' : sameTerm ? 'text-sky-400' : 'text-slate-500'}`}>
+                          {isArchivedClass(cls) ? 'Archive' : sameTerm ? 'Current' : 'Saved'}
+                        </span>
+                        {!!cls.room && <span className="text-[10px] text-slate-500">{cls.room}</span>}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+              {availableClasses.length === 0 && (
+                <div className="px-4 py-12 text-center text-slate-500 text-sm">登録済みの授業がありません。</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 export default TimetableTab;
-

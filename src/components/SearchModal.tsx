@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { isArchivedClass } from '../types';
 import type { ClassInfo } from '../types';
 
 interface SearchModalProps {
@@ -18,19 +19,49 @@ const SearchModal: React.FC<SearchModalProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
+  React.useEffect(() => {
+    if (!isOpen) {
+      setSearchQuery('');
+    }
+  }, [isOpen]);
+
   const filteredResults = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
     if (!query) return [];
 
-    const results: any[] = [];
+    const results: Array<ClassInfo & { type: 'class'; searchKey: string }> = [];
 
     classes.forEach(c => {
-      if (c.name.toLowerCase().includes(query) || (c.instructor && c.instructor.toLowerCase().includes(query)) || (c.subject_code && c.subject_code.toLowerCase().includes(query))) {
+      const searchable = [
+        c.name,
+        c.instructor,
+        c.subject_code,
+        c.faculty_dept,
+        c.semester,
+        c.room,
+        c.memo,
+        c.class_format,
+        c.academic_year ? `${c.academic_year}` : '',
+        c.credits !== undefined ? `${c.credits}` : '',
+        ...(c.class_schedules?.map((schedule) => `${schedule.day} ${schedule.period} ${schedule.room || ''}`) || []),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      if (searchable.includes(query)) {
         results.push({ ...c, type: 'class', searchKey: `class-${c.id}` });
       }
     });
 
-    return results.slice(0, 50);
+    return results
+      .sort((a, b) => {
+        if (isArchivedClass(a) !== isArchivedClass(b)) {
+          return isArchivedClass(a) ? -1 : 1;
+        }
+        return (b.created_at || '').localeCompare(a.created_at || '');
+      })
+      .slice(0, 50);
   }, [searchQuery, classes]);
 
   if (!isOpen && !isClosing) return null;
@@ -76,7 +107,9 @@ const SearchModal: React.FC<SearchModalProps> = ({
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start gap-2 mb-0.5">
                       <span className="text-sm font-bold text-white truncate group-hover:text-sky-400 transition-colors">{res.name}</span>
-                      <span className="text-[10px] text-slate-500 shrink-0 font-bold uppercase tracking-widest">Timetable</span>
+                      <span className={`text-[10px] shrink-0 font-bold uppercase tracking-widest ${isArchivedClass(res) ? 'text-amber-400' : 'text-slate-500'}`}>
+                        {isArchivedClass(res) ? 'Archive' : 'Timetable'}
+                      </span>
                     </div>
                     <div className="flex items-center gap-x-3 gap-y-1 flex-wrap text-[11px] text-slate-400 font-medium">
                       <span>{res.instructor || '教員不明'}</span>

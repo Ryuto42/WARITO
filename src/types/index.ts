@@ -21,6 +21,10 @@ export interface ClassInfo {
   class_schedules?: { day: string; period: number; room: string }[];
 }
 
+export const ARCHIVE_DAY = 'Archive';
+
+export const isArchivedClass = (cls: Pick<ClassInfo, 'day'>) => cls.day === ARCHIVE_DAY;
+
 export interface GradeInfo {
   id: string;
   user_id: string;
@@ -97,7 +101,8 @@ export const dayMap: Record<string, string> = {
   Thu: '木',
   Fri: '金',
   Sat: '土',
-  Sun: '日'
+  Sun: '日',
+  [ARCHIVE_DAY]: 'アーカイブ'
 };
 
 export const defaultTimetableSetting: TimetableTermSetting = {

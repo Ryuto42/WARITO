@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
-import { PRESET_COLORS, defaultTimetableSetting } from './types';
+import { ARCHIVE_DAY, PRESET_COLORS, defaultTimetableSetting, isArchivedClass } from './types';
 import type { ClassInfo, TimetableTermSetting, TimetableSettingsRecord, GradeInfo } from './types';
 import TimetableTab from './components/TimetableTab';
 import AccountTab from './components/AccountTab';
@@ -12,6 +12,53 @@ import { GradeAddModal } from './components/GradeModals';
 import GradesTab from './components/GradesTab';
 import SearchModal from './components/SearchModal';
 import pako from 'pako';
+
+const MAX_SHARE_PARAM_LENGTH = 12_000;
+const MAX_SHARE_CLASSES = 200;
+
+const clampNumber = (value: unknown, min: number, max: number, fallback: number) => {
+  const num = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(num)) return fallback;
+  return Math.min(max, Math.max(min, Math.trunc(num)));
+};
+
+const sanitizeText = (value: unknown, maxLength = 2000) => {
+  if (typeof value !== 'string') return '';
+  return value.trim().slice(0, maxLength);
+};
+
+const normalizeImportedClass = (raw: any): Partial<ClassInfo> => {
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const rawSchedules = Array.isArray(raw?.ss) ? raw.ss : [];
+
+  const normalizedSchedules: { day: string; period: number; room: string }[] = rawSchedules
+    .map((s: any) => ({
+      day: typeof s?.d === 'number' ? days[s.d] : sanitizeText(s?.d, 8),
+      period: clampNumber(s?.p, 1, 7, 1),
+      room: sanitizeText(s?.r, 120)
+    }))
+    .filter((s: { day: string; period: number; room: string }) => days.includes(s.day));
+
+  const day = typeof raw?.d === 'number' ? days[raw.d] : sanitizeText(raw?.d, 8);
+
+  return {
+    name: sanitizeText(raw?.n, 120),
+    day: days.includes(day) ? day : 'Mon',
+    period: clampNumber(raw?.p, 1, 7, 1),
+    room: sanitizeText(raw?.r, 120),
+    color: typeof raw?.c === 'number' ? PRESET_COLORS[raw.c]?.id || PRESET_COLORS[0].id : sanitizeText(raw?.c, 80) || PRESET_COLORS[0].id,
+    academic_year: clampNumber(raw?.y, 2000, 2100, new Date().getFullYear()),
+    semester: sanitizeText(raw?.sm, 30),
+    faculty_dept: sanitizeText(raw?.f, 120),
+    instructor: sanitizeText(raw?.i, 120),
+    class_format: sanitizeText(raw?.cf, 120),
+    credits: clampNumber(raw?.cr, 0, 50, 0),
+    evaluation: sanitizeText(raw?.e, 5000),
+    schedule: sanitizeText(raw?.s, 10000),
+    memo: sanitizeText(raw?.m, 5000),
+    class_schedules: normalizedSchedules.length > 0 ? normalizedSchedules : undefined,
+  };
+};
 
 const App = () => {
 
@@ -113,53 +160,31 @@ const App = () => {
     const shortParam = params.get('s');
 
     const expandData = (parsed: any) => {
-      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-      const expandedClasses = (parsed.cs || []).map((c: any) => {
-        const exp: any = {
-          name: c.n,
-          day: typeof c.d === 'number' ? days[c.d] : c.d,
-          period: c.p,
-          room: c.r,
-          color: typeof c.c === 'number' ? PRESET_COLORS[c.c]?.id || PRESET_COLORS[0].id : c.c,
-          academic_year: c.y,
-          semester: c.sm,
-          faculty_dept: c.f || '',
-          instructor: c.i || '',
-          class_format: c.cf || '',
-          credits: c.cr,
-          evaluation: c.e || '',
-          schedule: c.s || '',
-          memo: c.m || '',
-        };
-        if (c.ss) {
-          exp.class_schedules = c.ss.map((s: any) => ({
-            day: typeof s.d === 'number' ? days[s.d] : s.d,
-            period: s.p,
-            room: s.r
-          }));
-        }
-        return exp;
-      });
+      const rawClasses = Array.isArray(parsed?.cs) ? parsed.cs.slice(0, MAX_SHARE_CLASSES) : [];
+      const expandedClasses = rawClasses
+        .map((c: any) => normalizeImportedClass(c))
+        .filter((c: Partial<ClassInfo>) => c.name);
+
       return {
-        year: parsed.y,
-        semester: parsed.sm,
+        year: clampNumber(parsed?.y, 2000, 2100, new Date().getFullYear()),
+        semester: sanitizeText(parsed?.sm, 30),
         classes: expandedClasses
       };
     };
 
     if (shortParam) {
       supabase
-        .from('shared_timetables')
-        .select('data')
-        .eq('id', shortParam)
-        .single()
+        .rpc('get_shared_timetable', { p_id: shortParam })
         .then(({ data, error }) => {
           if (!error && data) {
-            setShareImportData(expandData(data.data));
+            setShareImportData(expandData(data));
           }
         });
     } else if (shareParam) {
       try {
+        if (shareParam.length > MAX_SHARE_PARAM_LENGTH) {
+          throw new Error('Share payload too large');
+        }
         const base64 = shareParam.replace(/-/g, '+').replace(/_/g, '/');
         const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
         const binary = Uint8Array.from(atob(padded), c => c.charCodeAt(0));
@@ -286,7 +311,7 @@ const App = () => {
   };
 
   const timetableData: { [day: string]: { [period: number]: ClassInfo[] } } = {};
-  classes.filter(c => c.academic_year === currentYear && c.semester === currentSemester).forEach(c => {
+  classes.filter(c => c.academic_year === currentYear && c.semester === currentSemester && !isArchivedClass(c)).forEach(c => {
     const schedules = c.class_schedules && c.class_schedules.length > 0 
       ? c.class_schedules 
       : [{ day: c.day, period: c.period, room: c.room }];
@@ -298,9 +323,10 @@ const App = () => {
     });
   });
 
-  const handleSaveClass = async (payload: Partial<ClassInfo>) => {
+  const handleSaveClass = async (payload: Partial<ClassInfo>, options?: { archive?: boolean }) => {
     setIsProcessing(true);
     let finalPayload = { ...payload };
+    const shouldArchive = options?.archive === true;
 
     if (finalPayload.class_format && finalPayload.class_format.includes('オンデマンド')) {
       finalPayload.room = 'オンデマ';
@@ -309,23 +335,36 @@ const App = () => {
       }
     }
 
+    if (shouldArchive) {
+      const firstSchedule = finalPayload.class_schedules?.[0];
+      finalPayload.day = ARCHIVE_DAY;
+      finalPayload.period = 0;
+      finalPayload.room = firstSchedule?.room || finalPayload.room || '';
+    } else if (finalPayload.day === ARCHIVE_DAY) {
+      const firstSchedule = finalPayload.class_schedules?.[0];
+      finalPayload.day = firstSchedule?.day || 'Mon';
+      finalPayload.period = firstSchedule?.period || 1;
+      finalPayload.room = firstSchedule?.room || finalPayload.room || '';
+    }
+
     if (!finalPayload.id && finalPayload.name) {
       const { data: existing } = await supabase.from('classes')
-        .select('id')
+        .select('id, day')
         .eq('user_id', session.user.id)
         .eq('academic_year', currentYear)
         .eq('semester', currentSemester)
-        .eq('name', finalPayload.name)
-        .limit(1);
+        .eq('name', finalPayload.name);
 
-      if (existing && existing.length > 0) {
-        finalPayload.id = existing[0].id;
+      const matchedExisting = existing?.find(item => shouldArchive ? item.day === ARCHIVE_DAY : item.day !== ARCHIVE_DAY);
+
+      if (matchedExisting) {
+        finalPayload.id = matchedExisting.id;
       }
     }
 
     if (finalPayload.id) {
       const { id, faculty_dept, ...updateData } = finalPayload;
-      const { error } = await supabase.from('classes').update(updateData).eq('id', finalPayload.id);
+      const { error } = await supabase.from('classes').update(updateData).eq('id', finalPayload.id).eq('user_id', session.user.id);
       if (!error) {
         fetchClasses(session.user.id);
         if (selectedClass && selectedClass.id === finalPayload.id) {
@@ -360,7 +399,7 @@ const App = () => {
   };
 
   const handleDeleteClass = async (id: string) => {
-    const { error } = await supabase.from('classes').delete().eq('id', id);
+    const { error } = await supabase.from('classes').delete().eq('id', id).eq('user_id', session.user.id);
     if (!error) {
       fetchClasses(session.user.id);
       setIsClosingDetail(true);
@@ -450,8 +489,9 @@ const App = () => {
     let hasError = false;
 
     if (toUpdate.length > 0) {
-       for (const u of toUpdate) {
-          const { error } = await supabase.from('grades').update(u).eq('id', u.id);
+      for (const u of toUpdate) {
+          const { id, user_id, ...updateData } = u;
+          const { error } = await supabase.from('grades').update(updateData).eq('id', id).eq('user_id', session.user.id);
           if (error) {
               console.error(error);
               hasError = true;
@@ -497,7 +537,7 @@ const App = () => {
 
       if (existing) {
         const { faculty_dept, ...updateData } = classPayload;
-        const { error } = await supabase.from('classes').update(updateData).eq('id', existing.id);
+        const { error } = await supabase.from('classes').update(updateData).eq('id', existing.id).eq('user_id', session.user.id);
         if (!error) imported++;
       } else {
         const { error } = await supabase.from('classes').insert([classPayload]);
@@ -735,6 +775,7 @@ const App = () => {
           <TimetableTab 
             currentYear={currentYear}
             currentSemester={currentSemester}
+            classes={classes}
             timetableData={timetableData}
             setting={currentSetting}
             onTermChange={(year, term) => { setCurrentYear(year); setCurrentSemester(term); }}
@@ -782,6 +823,14 @@ const App = () => {
           isClosing={isClosingDetail}
           onClose={closeDetailModalWithAnim}
           onSave={handleSaveClass}
+          onArchive={(cls) => handleSaveClass({ id: cls.id, class_schedules: cls.class_schedules, room: cls.room }, { archive: true })}
+          onRegisterToTimetable={(cls) => handleSaveClass({
+            id: cls.id,
+            day: cls.class_schedules?.[0]?.day || 'Mon',
+            period: cls.class_schedules?.[0]?.period || 1,
+            room: cls.class_schedules?.[0]?.room || cls.room || '',
+            class_schedules: cls.class_schedules
+          })}
           onDelete={handleDeleteClass}
         />
 

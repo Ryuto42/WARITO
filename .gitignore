@@ -10,7 +10,14 @@ dist-ssr
 # Environment variables
 .env
 .env.local
+.env.mcp
 .env.*.local
+
+# TypeScript
+*.tsbuildinfo
+
+# Supabase local state
+supabase/.temp
 
 # Logs
 logs
