@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PRESET_COLORS, dayMap } from '../types';
+import { PRESET_COLORS, dayMap, isArchivedClass } from '../types';
 import type { ClassInfo, ClassGradeStat } from '../types';
 import { fetchClassGradeStats } from '../utils/gradeStats';
 
@@ -32,19 +32,19 @@ const GradeStatCard = ({ stat }: { stat: ClassGradeStat }) => {
         </div>
         
         <div className="flex-1 h-2 sm:h-2.5 flex rounded-full overflow-hidden shadow-inner bg-slate-900/50">
-           {gradeItems.map((item, idx) => (
-              <div key={idx} style={{ width: `${item.value}%` }} className={`${item.color} h-full transition-all border-r border-slate-900/10 last:border-0`} />
-           ))}
+          {gradeItems.map((item, idx) => (
+            <div key={idx} style={{ width: `${item.value}%` }} className={`${item.color} h-full transition-all border-r border-slate-900/10 last:border-0`} />
+          ))}
         </div>
       </div>
 
       <div className="flex flex-wrap gap-x-3 gap-y-1.5 text-[9px] sm:text-[10px]">
-         {gradeItems.map((item, idx) => (
-            <div key={idx} className="flex items-center gap-1.2 text-slate-400 font-medium">
-               <span className={`w-1.5 h-1.5 rounded-full ${item.color} opacity-80`}></span>
-               {item.name} <span className="text-slate-200 font-bold ml-0.5">{item.value}%</span>
-            </div>
-         ))}
+        {gradeItems.map((item, idx) => (
+          <div key={idx} className="flex items-center gap-1.2 text-slate-400 font-medium">
+              <span className={`w-1.5 h-1.5 rounded-full ${item.color} opacity-80`}></span>
+              {item.name} <span className="text-slate-200 font-bold ml-0.5">{item.value}%</span>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -121,7 +121,7 @@ interface ClassAddModalProps {
   isOpen: boolean;
   isClosing: boolean;
   onClose: () => void;
-  onSave: (payload: Partial<ClassInfo>) => void;
+  onSave: (payload: Partial<ClassInfo>, options?: { archive?: boolean }) => void;
   classes: ClassInfo[];
 }
 
@@ -162,6 +162,20 @@ export const ClassAddModal: React.FC<ClassAddModalProps> = ({ isOpen, isClosing,
     setParsedData({});
     setEditedFields(new Set());
     setInputColor(PRESET_COLORS[0].id);
+  };
+
+  const updateRoomField = (room: string) => {
+    setParsedData(prev => ({
+      ...prev,
+      room,
+      class_schedules: prev.class_schedules?.map(schedule => ({ ...schedule, room })) || prev.class_schedules
+    }));
+    setEditedFields(prev => {
+      const next = new Set(prev);
+      next.add('room');
+      next.add('class_schedules');
+      return next;
+    });
   };
 
   const getFacultyColor = (facultyName: string) => {
@@ -313,6 +327,14 @@ export const ClassAddModal: React.FC<ClassAddModalProps> = ({ isOpen, isClosing,
     onSave({ ...parsedData, color: inputColor });
   };
 
+  const handleArchiveClick = () => {
+    if (!parsedData.name) {
+      setAlertState({ isOpen: true, isClosing: false, msg: "授業名が入力・抽出されていません。" });
+      return;
+    }
+    onSave({ ...parsedData, color: inputColor }, { archive: true });
+  };
+
   if (!isOpen && !isClosing) return null;
 
   return (
@@ -360,6 +382,30 @@ export const ClassAddModal: React.FC<ClassAddModalProps> = ({ isOpen, isClosing,
             </div>
           </div>
 
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs text-slate-400 mb-2 font-bold ml-1">教室</label>
+              <input
+                type="text"
+                value={parsedData.room || ''}
+                onChange={e => updateRoomField(e.target.value)}
+                className="w-full bg-[#1e293b]/50 border border-[#1e293b] rounded-xl p-3 text-sm text-white focus:outline-none focus:border-sky-500"
+                placeholder="教室"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-2 font-bold ml-1">単位数</label>
+              <input
+                type="number"
+                min="0"
+                value={parsedData.credits ?? ''}
+                onChange={e => updateField('credits', e.target.value === '' ? undefined : Number(e.target.value))}
+                className="w-full bg-[#1e293b]/50 border border-[#1e293b] rounded-xl p-3 text-sm text-white focus:outline-none focus:border-sky-500"
+                placeholder="2"
+              />
+            </div>
+          </div>
+
           <div>
             <label className="block text-xs text-slate-400 mb-2 font-bold ml-1">メモ</label>
             <input 
@@ -389,9 +435,10 @@ export const ClassAddModal: React.FC<ClassAddModalProps> = ({ isOpen, isClosing,
               ))}
             </div>
           </div>
-          <div className="pt-6 flex justify-between gap-3">
-            <button onClick={onClose} className="w-1/2 py-3 bg-[#1e293b] hover:bg-[#334155] text-slate-300 rounded-xl font-bold transition-all active:scale-95 border border-[#1e293b]">キャンセル</button>
-            <button onClick={handleSaveClick} className="w-1/2 py-3 bg-sky-500 hover:bg-sky-400 text-slate-900 rounded-xl font-bold transition-all active:scale-95 shadow-lg shadow-sky-500/20">保存する</button>
+          <div className="pt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <button onClick={onClose} className="py-3 bg-[#1e293b] hover:bg-[#334155] text-slate-300 rounded-xl font-bold transition-all active:scale-95 border border-[#1e293b]">キャンセル</button>
+            <button onClick={handleArchiveClick} className="py-3 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/30 text-amber-300 rounded-xl font-bold transition-all active:scale-95">アーカイブに追加</button>
+            <button onClick={handleSaveClick} className="py-3 bg-sky-500 hover:bg-sky-400 text-slate-900 rounded-xl font-bold transition-all active:scale-95 shadow-lg shadow-sky-500/20">時間割に保存</button>
           </div>
         </div>
       </div>
@@ -405,11 +452,13 @@ interface ClassDetailModalProps {
   cls: ClassInfo | null;
   isClosing: boolean;
   onClose: () => void;
-  onSave: (payload: Partial<ClassInfo>) => void;
+  onSave: (payload: Partial<ClassInfo>, options?: { archive?: boolean }) => void;
+  onRegisterToTimetable: (cls: ClassInfo) => void;
+  onArchive: (cls: ClassInfo) => void;
   onDelete: (id: string) => void;
 }
 
-export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosing, onClose, onSave, onDelete }) => {
+export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosing, onClose, onSave, onRegisterToTimetable, onArchive, onDelete }) => {
   const [editMode, setEditMode] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
@@ -470,6 +519,7 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
   }, [cls, editMode]);
 
   if (!cls) return null;
+  const archived = isArchivedClass(cls);
 
   const handleSaveClick = () => {
     onSave({
@@ -531,6 +581,17 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
             </button>
+            {!archived && (
+              <button
+                onClick={() => onArchive(cls)}
+                className="p-2 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/30 text-amber-300 rounded-lg shadow-lg transition-all active:scale-95"
+                title="アーカイブ"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8l1.5 10.5A2 2 0 008.48 20h7.04a2 2 0 001.98-1.5L19 8M4 5h16v3H4V5zm5 4v6m6-6v6" />
+                </svg>
+              </button>
+            )}
             <button 
               onClick={() => setEditMode(true)} 
               className="p-2 bg-[#1e293b] border border-[#334155] text-white rounded-lg shadow-lg transition-all active:scale-95"
@@ -545,12 +606,18 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
 
         <div className="flex flex-col items-center mb-8 mt-6">
           <div className="flex flex-wrap gap-2 justify-center mb-4">
-            {(cls.class_schedules && cls.class_schedules.length > 0 ? cls.class_schedules : [{ day: cls.day, period: cls.period }]).map((sch, i) => (
+            {(cls.class_schedules && cls.class_schedules.length > 0 ? cls.class_schedules : (!archived ? [{ day: cls.day, period: cls.period }] : [])).map((sch, i) => (
               <div key={i} className={`inline-block px-3 py-1 sm:px-4 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold ${cls.color} !border-none shadow-sm tracking-widest class-card`}>
                 {dayMap[sch.day] || sch.day}曜日 {sch.period}限
               </div>
             ))}
           </div>
+          {archived && (
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-amber-400/20 bg-amber-500/10 px-4 py-2 text-[11px] font-bold tracking-wider text-amber-300">
+              <span className="h-2 w-2 rounded-full bg-amber-400"></span>
+              アーカイブ中
+            </div>
+          )}
           {editMode ? (
             <input type="text" value={inputName} onChange={e => setInputName(e.target.value)} className="w-full max-w-sm bg-[#1e293b] border border-[#334155] rounded-xl p-3 text-white text-center text-xl font-bold focus:outline-none focus:border-sky-500 transition-colors" />
           ) : (
@@ -724,6 +791,17 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
             {cls.updated_at && (
               <div className="mt-8 text-right text-[10px] text-slate-600 font-medium tracking-wider">
                 更新日: {cls.updated_at}
+              </div>
+            )}
+
+            {archived && (
+              <div className="mt-8 pt-6 border-t border-white/5">
+                <button
+                  onClick={() => onRegisterToTimetable(cls)}
+                  className="w-full py-3.5 bg-sky-500 hover:bg-sky-400 text-slate-900 rounded-xl font-bold transition-all active:scale-95 shadow-lg shadow-sky-500/20"
+                >
+                  時間割に登録
+                </button>
               </div>
             )}
           </div>

@@ -13,6 +13,8 @@ Paste syllabus text to auto-extract course info, or add classes manually — all
 - **Responsive Layout** — Split-view for conflicting periods and adjusted dimensions for mobile
 - **Evaluation Pie Chart** — Visualize grading criteria extracted from syllabi
 - **Customizable Grid** — Toggle Saturday, set period count (1–7), and configure time slots per period using collapsable menus
+- **Archived Classes** — Save classes to the database without placing them on the timetable, then re-register them later from class details
+- **Share Import Hardening** — Shared timetable payloads are normalized and size-limited before import
 
 ## 🛠 Tech Stack
 

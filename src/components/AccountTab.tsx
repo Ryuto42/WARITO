@@ -35,8 +35,7 @@ const AccountTab: React.FC<AccountTabProps> = ({
 
   const isAdmin = 
     session?.user?.user_metadata?.role === 'admin' || 
-    session?.user?.app_metadata?.role === 'admin' ||
-    session?.user?.email === 'admin@example.com';
+    session?.user?.app_metadata?.role === 'admin';
 
   const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -190,6 +189,7 @@ const AccountTab: React.FC<AccountTabProps> = ({
 
   const executeDeleteUser = async () => {
     closeConfirmDelete();
+    await supabase.from('grades').delete().eq('user_id', session.user.id);
     await supabase.from('classes').delete().eq('user_id', session.user.id);
     const { error } = await supabase.rpc('delete_user');
     if (!error) { 
@@ -298,13 +298,10 @@ const AccountTab: React.FC<AccountTabProps> = ({
 
             const shareData = { y: currentYear, sm: currentSemester, cs: compactClasses, v: 2 };
             const { data, error } = await supabase
-              .from('shared_timetables')
-              .insert([{ data: shareData }])
-              .select()
-              .single();
+              .rpc('create_shared_timetable', { payload: shareData });
 
             if (!error && data) {
-              const url = `${window.location.origin}${window.location.pathname}?s=${data.id}`;
+              const url = `${window.location.origin}${window.location.pathname}?s=${data}`;
               setShareUrl(url);
               navigator.clipboard.writeText(url).catch(() => {});
             }
