@@ -106,6 +106,10 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
 
     return classes
       .filter((cls) => {
+        if (cls.academic_year !== currentYear || cls.semester !== currentSemester) {
+          return false;
+        }
+
         const schedules = cls.class_schedules && cls.class_schedules.length > 0
           ? cls.class_schedules
           : [{ day: cls.day, period: cls.period, room: cls.room }];
@@ -297,7 +301,7 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
           onClick={closeSlotPicker}
         >
           <div
-            className={`bg-[#0f172a] border-t sm:border border-[#1e293b] rounded-t-[2rem] sm:rounded-3xl w-full max-w-lg shadow-2xl max-h-[85vh] overflow-hidden ${isClosingSlotPicker ? 'animate-slide-down' : 'animate-slide-up'}`}
+            className={`bg-[#0f172a] border sm:border border-[#1e293b] rounded-3xl w-full max-w-lg shadow-2xl max-h-[calc(100dvh-8rem-env(safe-area-inset-bottom))] sm:max-h-[85vh] overflow-hidden mb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:mb-0 mx-3 sm:mx-0 ${isClosingSlotPicker ? 'animate-slide-down' : 'animate-slide-up'}`}
             onClick={e => e.stopPropagation()}
           >
             <div className="p-5 sm:p-6 border-b border-[#1e293b]">

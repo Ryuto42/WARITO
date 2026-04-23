@@ -49,6 +49,7 @@ export interface ClassGradeStat {
   id: string;
   year: number;
   semester: string;
+  registration_code?: string;
   subject_code: string;
   subject_name: string;
   instructor: string;

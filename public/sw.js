@@ -1,4 +1,4 @@
-const CACHE_NAME = 'warito-cache-v5';
+const CACHE_NAME = 'warito-cache-v6';
 const ASSETS = [
   '/',
   '/manifest.json',
