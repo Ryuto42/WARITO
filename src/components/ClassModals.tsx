@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { PRESET_COLORS, dayMap, isArchivedClass } from '../types';
 import type { ClassInfo, ClassGradeStat } from '../types';
 import { fetchClassGradeStats } from '../utils/gradeStats';
+import { getGradeStatMatchScore } from '../utils/gradeStatMatching';
 
 const GradeStatCard = ({ stat }: { stat: ClassGradeStat }) => {
   const gradeItems = [
@@ -483,23 +484,61 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
   }, [cls?.id]);
 
   useEffect(() => {
+    setGradeStats([]);
+    if (!cls || editMode) return;
+
+    let isActive = true;
+    const currentClassId = cls.id;
+
     const fetchStats = async () => {
-      if (!cls || editMode) return;
       try {
         const data = await fetchClassGradeStats();
-        // Match by subject name OR subject code
-        const matched = data.filter(s => 
-          s.subject_name === cls.name || 
-          (cls.subject_code && s.subject_code === cls.subject_code)
-        );
-        setGradeStats(matched.sort((a, b) => {
-          if (b.year !== a.year) return b.year - a.year;
-          return b.semester === '秋学期' ? 1 : -1;
-        }));
+        const matched = data
+          .map((stat) => ({
+            stat,
+            score: getGradeStatMatchScore(
+              {
+                academic_year: cls.academic_year,
+                subject_name: cls.name,
+                subject_code: cls.subject_code,
+                instructor: cls.instructor,
+                semester: cls.semester,
+              },
+              stat,
+              { allowLooseNameMatch: false }
+            ),
+          }))
+          .filter(({ score }) => score > 0);
+        if (!isActive || currentClassId !== cls.id) {
+          return;
+        }
+
+        const nextStats = matched
+          .sort((a, b) => {
+            if (b.stat.year !== a.stat.year) return b.stat.year - a.stat.year;
+            const semesterDiff = b.score - a.score;
+            if (semesterDiff !== 0) return semesterDiff;
+            return a.stat.semester.localeCompare(b.stat.semester, 'ja');
+          })
+          .map(({ stat }) => stat)
+          .filter((stat, index, stats) => {
+            const firstIndex = stats.findIndex((candidate) =>
+              candidate.year === stat.year &&
+              candidate.semester === stat.semester &&
+              candidate.subject_name === stat.subject_name
+            );
+            return firstIndex === index;
+          });
+
+        setGradeStats(nextStats);
       } catch(e) {}
     };
     fetchStats();
-  }, [cls?.name, editMode]);
+
+    return () => {
+      isActive = false;
+    };
+  }, [cls, editMode]);
 
   useEffect(() => {
     if (cls && !editMode) {
