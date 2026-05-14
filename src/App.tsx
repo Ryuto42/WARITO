@@ -192,10 +192,10 @@ const App = () => {
 
     if (shortParam) {
       supabase
-        .rpc('get_shared_timetable', { p_id: shortParam })
+        .functions.invoke('get-shared-timetable', { body: { id: shortParam } })
         .then(({ data, error }) => {
-          if (!error && data) {
-            setShareImportData(expandData(data));
+          if (!error && data?.payload) {
+            setShareImportData(expandData(data.payload));
           }
         });
     } else if (shareParam) {
