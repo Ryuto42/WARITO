@@ -189,9 +189,7 @@ const AccountTab: React.FC<AccountTabProps> = ({
 
   const executeDeleteUser = async () => {
     closeConfirmDelete();
-    await supabase.from('grades').delete().eq('user_id', session.user.id);
-    await supabase.from('classes').delete().eq('user_id', session.user.id);
-    const { error } = await supabase.rpc('delete_user');
+    const { error } = await supabase.functions.invoke('delete-user');
     if (!error) { 
       onSignOut(); 
     } else { 
@@ -298,10 +296,10 @@ const AccountTab: React.FC<AccountTabProps> = ({
 
             const shareData = { y: currentYear, sm: currentSemester, cs: compactClasses, v: 2 };
             const { data, error } = await supabase
-              .rpc('create_shared_timetable', { payload: shareData });
+              .functions.invoke('create-shared-timetable', { body: { payload: shareData } });
 
-            if (!error && data) {
-              const url = `${window.location.origin}${window.location.pathname}?s=${data}`;
+            if (!error && data?.id) {
+              const url = `${window.location.origin}${window.location.pathname}?s=${data.id}`;
               setShareUrl(url);
               navigator.clipboard.writeText(url).catch(() => {});
             }
