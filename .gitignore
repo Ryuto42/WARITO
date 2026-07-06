@@ -42,3 +42,18 @@ Thumbs.db
 # MCP
 mcp/
 
+# Android Security & Build files
+android/.gradle
+android/local.properties
+android/app/build/
+android/build/
+*.keystore
+*.jks
+*.pk8
+*.pem
+*.apk
+*.aab
+google-services.json
+
+# Capacitor generated plugins
+android/capacitor-cordova-android-plugins/

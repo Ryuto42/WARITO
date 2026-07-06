@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { App as CapacitorApp } from '@capacitor/app';
 import { supabase } from './supabaseClient';
 import { ARCHIVE_DAY, PRESET_COLORS, defaultTimetableSetting, isArchivedClass } from './types';
 import type { ClassInfo, TimetableTermSetting, TimetableSettingsRecord, GradeInfo } from './types';
@@ -71,8 +72,24 @@ const App = () => {
   const [authError, setAuthError] = useState('');
   const [authSuccess, setAuthSuccess] = useState('');
 
-  const [classes, setClasses] = useState<ClassInfo[]>([]);
-  const [grades, setGrades] = useState<GradeInfo[]>([]);
+  const [classes, setClasses] = useState<ClassInfo[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('waritoClassesCache');
+      if (saved) {
+        try { return JSON.parse(saved); } catch (e) {}
+      }
+    }
+    return [];
+  });
+  const [grades, setGrades] = useState<GradeInfo[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('waritoGradesCache');
+      if (saved) {
+        try { return JSON.parse(saved); } catch (e) {}
+      }
+    }
+    return [];
+  });
   const [activeTab, setActiveTab] = useState<'timetable' | 'grades' | 'account'>('timetable');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isClosingAdd, setIsClosingAdd] = useState(false);
@@ -114,6 +131,36 @@ const App = () => {
       setIsClosingProcessing(false);
     }, 200);
   };
+
+  const backButtonState = useRef({
+    globalAlert, showWelcome, shareImportData, isSearchModalOpen, isAddModalOpen, isGradeAddModalOpen, selectedClass
+  });
+
+  useEffect(() => {
+    backButtonState.current = {
+      globalAlert, showWelcome, shareImportData, isSearchModalOpen, isAddModalOpen, isGradeAddModalOpen, selectedClass
+    };
+  });
+
+  useEffect(() => {
+    let listener: any;
+    if (typeof window !== 'undefined') {
+      CapacitorApp.addListener('backButton', () => {
+        const state = backButtonState.current;
+        if (state.globalAlert.isOpen) { closeAppAlert(); return; }
+        if (state.showWelcome) { closeWelcome(); return; }
+        if (state.shareImportData) { dismissImport(); return; }
+        if (state.isSearchModalOpen) { closeSearchModalWithAnim(); return; }
+        if (state.isGradeAddModalOpen) { closeGradeAddModalWithAnim(); return; }
+        if (state.isAddModalOpen) { closeAddModalWithAnim(); return; }
+        if (state.selectedClass) { closeDetailModalWithAnim(); return; }
+        CapacitorApp.exitApp();
+      }).then(l => listener = l);
+    }
+    return () => {
+      if (listener) listener.remove();
+    };
+  }, []);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -233,13 +280,19 @@ const App = () => {
 
   const fetchClasses = async (userId: string) => {
     const { data, error } = await supabase.from('classes').select('*').eq('user_id', userId);
-    if (data) setClasses(data);
+    if (data) {
+      setClasses(data);
+      localStorage.setItem('waritoClassesCache', JSON.stringify(data));
+    }
     if (error) console.error(error);
   };
 
   const fetchGrades = async (userId: string) => {
     const { data, error } = await supabase.from('grades').select('*').eq('user_id', userId);
-    if (data) setGrades(data);
+    if (data) {
+      setGrades(data);
+      localStorage.setItem('waritoGradesCache', JSON.stringify(data));
+    }
     if (error) console.error(error);
   };
 
@@ -320,6 +373,9 @@ const App = () => {
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     setClasses([]);
+    setGrades([]);
+    localStorage.removeItem('waritoClassesCache');
+    localStorage.removeItem('waritoGradesCache');
   };
 
   const switchAuthMode = (mode: 'signin' | 'signup') => {
@@ -594,7 +650,7 @@ const App = () => {
 
   if (!session) {
     return (
-      <div className="min-h-[100dvh] bg-[#050811] text-gray-200 flex flex-col items-center justify-center p-6 sm:p-8">
+      <div className="min-h-[100dvh] bg-[#050811] text-gray-200 flex flex-col items-center justify-center p-6 sm:p-8 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
         <style>{`
           @keyframes authFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
           .auth-fade-in { animation: authFadeIn 0.3s ease-out forwards; }
@@ -736,7 +792,7 @@ const App = () => {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-[#050811] text-gray-200 font-sans selection:bg-sky-500/30 overflow-x-hidden">
+    <div className="min-h-[100dvh] bg-[#050811] text-gray-200 font-sans selection:bg-sky-500/30 overflow-x-hidden pb-[env(safe-area-inset-bottom)]">
       <style>{`
         ::-webkit-scrollbar { display: none; }
         * { -ms-overflow-style: none; scrollbar-width: none; }
@@ -756,7 +812,7 @@ const App = () => {
       `}</style>
       
       <div className="max-w-5xl mx-auto relative pb-0">
-        <header className="fixed top-0 left-0 right-0 z-[100] pointer-events-none h-24 sm:h-32">
+        <header className="fixed top-0 left-0 right-0 z-[100] pointer-events-none pt-[env(safe-area-inset-top)] h-[calc(6rem+env(safe-area-inset-top))] sm:h-[calc(8rem+env(safe-area-inset-top))]">
           <div className="absolute inset-0 bg-[#050811]/40 [.theme-light_&]:bg-white/40 backdrop-blur-md [mask-image:linear-gradient(to_bottom,black_20%,transparent_90%)] -z-10"></div>
           
           <div className="max-w-5xl mx-auto flex justify-between items-center py-4 sm:py-6 px-4 sm:px-6">
@@ -787,7 +843,7 @@ const App = () => {
           </div>
         </header>
 
-        <div className="mt-20 sm:mt-24">
+        <div className="mt-[calc(5rem+env(safe-area-inset-top))] sm:mt-[calc(6rem+env(safe-area-inset-top))]">
 
         {activeTab === 'timetable' && (
           <TimetableTab 
