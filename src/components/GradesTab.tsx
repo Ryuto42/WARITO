@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import type { GradeInfo, ClassGradeStat } from '../types';
 import { fetchClassGradeStats } from '../utils/gradeStats';
-import { getGradeStatMatchScore } from '../utils/gradeStatMatching';
+import { selectGradeStatMatches } from '../utils/gradeStatMatching';
 
 interface GradesTabProps {
   grades: GradeInfo[];
@@ -143,25 +143,14 @@ const ExpandedGradeStat = ({ grade }: { grade: GradeInfo }) => {
     const fetchStats = async () => {
       setLoading(true);
       try {
-        const allStats = await fetchClassGradeStats(grade.year);
+        const allStats = await fetchClassGradeStats();
         const gradeYear = grade.year;
 
-        const matched = allStats
-          .map((s) => ({ stat: s, score: getGradeStatMatchScore(grade, s) }))
-          .filter(({ stat, score }) => {
-            if (gradeYear && stat.year !== gradeYear) {
-              return false;
-            }
-            return score > 0;
-          })
-          .sort((a, b) => {
-            if (b.score !== a.score) return b.score - a.score;
-            if (b.stat.year !== a.stat.year) return b.stat.year - a.stat.year;
-            return getSemesterRank(a.stat.semester) - getSemesterRank(b.stat.semester);
-          })
-          .map(({ stat }) => stat);
-
-        setStats(matched);
+        // 同年度を優先し、該当年度にデータが無い場合は他年度の実績にフォールバックする
+        const sameYear = gradeYear
+          ? selectGradeStatMatches(grade, allStats.filter((s) => s.year === gradeYear))
+          : [];
+        setStats(sameYear.length > 0 ? sameYear : selectGradeStatMatches(grade, allStats));
       } catch(e) {}
       setLoading(false);
     };

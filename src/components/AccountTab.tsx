@@ -1,8 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import {
+  getThemePreference,
+  setThemePreference,
+  watchSystemTheme,
+  type ThemePreference,
+} from '../utils/theme';
 import { dayMap, PRESET_COLORS } from '../types';
 import type { ClassInfo, TimetableTermSetting, ClassGradeStat } from '../types';
 import Papa from 'papaparse';
+import { clearClassGradeStatsCache } from '../utils/gradeStats';
 
 interface AccountTabProps {
   session: any;
@@ -135,6 +142,7 @@ const AccountTab: React.FC<AccountTabProps> = ({
             console.error(error);
             setUploadStatus(`エラー: ${error.message}`);
           } else {
+            clearClassGradeStatsCache();
             setUploadStatus(`成功しました！ ${stats.length}件のデータを更新しました。`);
           }
         } catch (err: any) {
@@ -156,23 +164,21 @@ const AccountTab: React.FC<AccountTabProps> = ({
     setTimeout(() => setConfirmDeleteState({ isOpen: false, isClosing: false }), 200);
   };
   
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    return localStorage.getItem('waritoTheme') !== 'light';
-  });
+  // 「端末に合わせる」を既定にして、ダーク/ライトどちらの端末設定にも追従させる
+  const [themePref, setThemePref] = useState<ThemePreference>(() => getThemePreference());
 
-  const toggleTheme = () => {
-    const nextDark = !isDarkMode;
-    setIsDarkMode(nextDark);
-    localStorage.setItem('waritoTheme', nextDark ? 'dark' : 'light');
-    
-    document.documentElement.classList.add('theme-transition');
-    if (nextDark) {
-      document.documentElement.classList.remove('theme-light');
-    } else {
-      document.documentElement.classList.add('theme-light');
-    }
-    setTimeout(() => document.documentElement.classList.remove('theme-transition'), 500);
+  useEffect(() => watchSystemTheme(() => setThemePref(getThemePreference())), []);
+
+  const cycleTheme = () => {
+    const order: ThemePreference[] = ['system', 'light', 'dark'];
+    const next = order[(order.indexOf(themePref) + 1) % order.length];
+    setThemePref(next);
+    setThemePreference(next);
   };
+
+  const themeIcon = themePref === 'system' ? '🌗' : themePref === 'light' ? '☀️' : '🌙';
+  const themeLabel =
+    themePref === 'system' ? '端末に合わせる' : themePref === 'light' ? 'ライト' : 'ダーク';
   
   const handleTimeChange = (period: number, type: 'start' | 'end', val: string) => {
     const updated = { ...setting };
@@ -223,10 +229,12 @@ const AccountTab: React.FC<AccountTabProps> = ({
 
     <div className="max-w-3xl mx-auto animate-fade-in pb-24 pt-4 px-4 relative">
       <button 
-        onClick={toggleTheme}
-        className="absolute top-0 right-4 p-3 bg-[#111111] border border-gray-800 rounded-full shadow-lg text-xl hover:scale-110 active:scale-95 transition-all z-10"
+        onClick={cycleTheme}
+        title={`テーマ: ${themeLabel}`}
+        aria-label={`テーマ: ${themeLabel}（タップで切替）`}
+        className="liquid-glass absolute top-0 right-4 w-11 h-11 rounded-full text-lg z-10 flex items-center justify-center"
       >
-        {isDarkMode ? '🌙' : '☀️'}
+        {themeIcon}
       </button>
 
       <div className="bg-[#111111] border border-gray-800 rounded-3xl p-6 mb-4 shadow-2xl text-center">

@@ -13,6 +13,15 @@ type GradeStatMatchOptions = {
   allowLooseNameMatch?: boolean;
 };
 
+// 3=科目コード一致, 2=科目名一致, 1=あいまい一致
+export type GradeStatMatchTier = 0 | 1 | 2 | 3;
+
+export type GradeStatMatch = {
+  stat: ClassGradeStat;
+  tier: GradeStatMatchTier;
+  score: number;
+};
+
 const getSemesterToken = (value: string | undefined) => {
   const normalized = normalizeMatchValue(value);
   if (normalized.includes('春')) return 'spring';
@@ -26,7 +35,16 @@ export const normalizeMatchValue = (value: string | undefined) => (
     .toLowerCase()
     .replace(/\s+/g, '')
     .replace(/[‐‑‒–—―ーｰ-]/g, '-')
-    .replace(/[()（）［］\[\]{}｛｝「」『』【】]/g, '')
+);
+
+// 【Aブロック】/＜理工共通＞/末尾の * など、開講区分を表す装飾を丸ごと除去する
+const stripSectionMarkers = (value: string) => (
+  value
+    .replace(/【[^】]*】/g, '')
+    .replace(/＜[^＞]*＞/g, '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/[「」『』]/g, '')
+    .replace(/\*+$/g, '')
 );
 
 export const normalizeSubjectCode = (value: string | undefined) => (
@@ -34,108 +52,125 @@ export const normalizeSubjectCode = (value: string | undefined) => (
 );
 
 export const buildCodeCandidates = (...values: Array<string | undefined>) => (
-  Array.from(
-    new Set(
-      values
-        .map(normalizeSubjectCode)
-        .filter(Boolean)
-    )
-  )
+  Array.from(new Set(values.map(normalizeSubjectCode).filter(Boolean)))
 );
 
-export const buildNameCandidates = (value: string | undefined) => {
+// 科目名の正規化キー。base=区分マーカーのみ除去 / core=副題の括弧も除去した弱いキー
+const buildNameKeys = (value: string | undefined) => {
   const source = (value || '').normalize('NFKC');
-  const fragments = source
-    .split(/[／/]/)
-    .flatMap(part => part.split(/[()（）［］\[\]{}｛｝「」『』【】]/))
-    .map(part => normalizeMatchValue(part))
-    .filter(Boolean);
+  const base = normalizeMatchValue(stripSectionMarkers(source));
+  const core = base.replace(/[(（][^)）]*[)）]/g, '').replace(/[()（）]/g, '');
+  return { base, core: core.length >= 3 ? core : '' };
+};
 
-  const full = normalizeMatchValue(source);
-  return Array.from(new Set([full, ...fragments])).filter(candidate => candidate.length >= 2);
+export const buildNameCandidates = (value: string | undefined) => {
+  const { base, core } = buildNameKeys(value);
+  return Array.from(new Set([base, core])).filter(Boolean);
 };
 
 export const subjectNameMatches = (left: string | undefined, right: string | undefined) => {
-  const leftCandidates = buildNameCandidates(left);
-  const rightCandidates = buildNameCandidates(right);
+  const a = buildNameKeys(left);
+  const b = buildNameKeys(right);
+  if (!a.base || !b.base) return false;
+  return a.base === b.base || (!!a.core && a.core === b.core);
+};
 
-  return leftCandidates.some(leftCandidate =>
-    rightCandidates.some(rightCandidate =>
-      leftCandidate === rightCandidate ||
-      leftCandidate.includes(rightCandidate) ||
-      rightCandidate.includes(leftCandidate)
-    )
-  );
+const getInstructorBonus = (target: GradeStatMatchTarget, stat: ClassGradeStat) => {
+  const t = normalizeMatchValue(target.instructor);
+  const s = normalizeMatchValue(stat.instructor);
+  if (!t || !s) return 0;
+  if (t === s) return 30;
+  if (t.includes(s) || s.includes(t)) return 15;
+  return 0;
+};
+
+export const getGradeStatMatch = (
+  target: GradeStatMatchTarget,
+  stat: ClassGradeStat,
+  options: GradeStatMatchOptions = {}
+): GradeStatMatch => {
+  const { allowLooseNameMatch = true } = options;
+
+  const targetCodes = buildCodeCandidates(target.registration_code, target.subject_code);
+  const statCodes = buildCodeCandidates(stat.subject_code);
+  const targetName = buildNameKeys(target.subject_name);
+  const statName = buildNameKeys(stat.subject_name);
+  const instructorBonus = getInstructorBonus(target, stat);
+
+  let tier: GradeStatMatchTier = 0;
+  let score = 0;
+
+  // 科目コードは完全一致のみ採用する。
+  // 前方一致は「GSP20600 図形の世界 / GSP20690 社会学」のように別科目を誤結合するため使わない。
+  if (targetCodes.some((code) => statCodes.includes(code))) {
+    tier = 3;
+    score = 100;
+  } else if (targetName.base && targetName.base === statName.base) {
+    tier = 2;
+    score = 60;
+  } else if (
+    allowLooseNameMatch &&
+    instructorBonus > 0 &&
+    targetName.core &&
+    (targetName.core === statName.core ||
+      targetName.base.includes(statName.base) ||
+      statName.base.includes(targetName.base))
+  ) {
+    // あいまい一致は担当教員が一致する場合に限る（別科目の混入防止）
+    tier = 1;
+    score = 25;
+  }
+
+  if (tier === 0) return { stat, tier, score: 0 };
+
+  const targetSemester = getSemesterToken(target.semester);
+  const statSemester = getSemesterToken(stat.semester);
+  if (targetSemester && statSemester && targetSemester === statSemester) score += 10;
+  if (target.academic_year && stat.year === target.academic_year) score += 20;
+  score += instructorBonus;
+
+  return { stat, tier, score };
 };
 
 export const getGradeStatMatchScore = (
   target: GradeStatMatchTarget,
   stat: ClassGradeStat,
   options: GradeStatMatchOptions = {}
-) => {
-  const { allowLooseNameMatch = true } = options;
-  const targetCodeCandidates = buildCodeCandidates(
-    target.registration_code,
-    target.subject_code
-  );
-  const statCodeCandidates = buildCodeCandidates(
-    stat.registration_code,
-    stat.subject_code
-  );
-  const targetNameCandidates = buildNameCandidates(target.subject_name);
-  const statNameCandidates = buildNameCandidates(stat.subject_name);
-  const normalizedTargetInstructor = normalizeMatchValue(target.instructor);
-  const normalizedStatInstructor = normalizeMatchValue(stat.instructor);
-  const targetSemesterToken = getSemesterToken(target.semester);
-  const statSemesterToken = getSemesterToken(stat.semester);
+) => getGradeStatMatch(target, stat, options).score;
 
-  let score = 0;
+/**
+ * 対象に紐づく成績統計を選び出す。
+ * - 最も信頼度の高いtierだけを残す（コード一致があれば名前一致は捨てる）
+ * - 年度/学期/科目コード単位で重複排除する
+ */
+export const selectGradeStatMatches = (
+  target: GradeStatMatchTarget,
+  stats: ClassGradeStat[],
+  options: GradeStatMatchOptions = {}
+): ClassGradeStat[] => {
+  const matches = stats
+    .map((stat) => getGradeStatMatch(target, stat, options))
+    .filter((m) => m.tier > 0);
 
-  targetCodeCandidates.forEach((targetCode) => {
-    statCodeCandidates.forEach((statCode) => {
-      if (statCode === targetCode) {
-        score = Math.max(score, 100);
-      } else if (statCode.includes(targetCode) || targetCode.includes(statCode)) {
-        score = Math.max(score, 70);
-      }
-    });
-  });
+  if (matches.length === 0) return [];
 
-  targetNameCandidates.forEach((targetName) => {
-    statNameCandidates.forEach((statName) => {
-      if (targetName === statName) {
-        score = Math.max(score, 50);
-      } else if (
-        allowLooseNameMatch &&
-        (targetName.includes(statName) || statName.includes(targetName))
-      ) {
-        score = Math.max(score, 25);
-      }
-    });
-  });
+  const bestTier = Math.max(...matches.map((m) => m.tier));
+  let candidates = matches.filter((m) => m.tier === bestTier);
 
-  if (targetSemesterToken && statSemesterToken && targetSemesterToken === statSemesterToken && score > 0) {
-    score += 10;
-  }
+  // 同名の別ブロックが並ぶ場合は担当教員が一致するものだけを残す
+  const withInstructor = candidates.filter((m) => getInstructorBonus(target, m.stat) > 0);
+  if (withInstructor.length > 0) candidates = withInstructor;
 
-  if (target.academic_year && stat.year === target.academic_year && score > 0) {
-    score += 20;
-  }
-
-  if (
-    normalizedTargetInstructor &&
-    normalizedStatInstructor &&
-    score > 0
-  ) {
-    if (normalizedTargetInstructor === normalizedStatInstructor) {
-      score += 30;
-    } else if (
-      normalizedTargetInstructor.includes(normalizedStatInstructor) ||
-      normalizedStatInstructor.includes(normalizedTargetInstructor)
-    ) {
-      score += 15;
-    }
-  }
-
-  return score;
+  return candidates
+    .sort((a, b) => (
+      b.score - a.score ||
+      b.stat.year - a.stat.year ||
+      (a.stat.semester || '').localeCompare(b.stat.semester || '', 'ja')
+    ))
+    .filter((m, index, list) => list.findIndex((other) => (
+      other.stat.year === m.stat.year &&
+      other.stat.semester === m.stat.semester &&
+      other.stat.subject_code === m.stat.subject_code
+    )) === index)
+    .map((m) => m.stat);
 };

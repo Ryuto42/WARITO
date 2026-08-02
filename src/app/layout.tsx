@@ -16,7 +16,12 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#050811',
+  // ブラウザ/PWA のクロームもテーマに追従させる
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#f1f5f9' },
+    { media: '(prefers-color-scheme: dark)', color: '#050811' },
+  ],
+  colorScheme: 'dark light',
 }
 
 export default function RootLayout({
@@ -29,10 +34,13 @@ export default function RootLayout({
       <head>
         <Script id="theme-script" strategy="beforeInteractive">
           {`
-            const savedTheme = localStorage.getItem('waritoTheme');
-            if (savedTheme === 'light') {
-              document.documentElement.classList.add('theme-light');
-            }
+            // 未設定なら端末のダーク/ライト設定に追従する
+            var saved = localStorage.getItem('waritoTheme');
+            var light = saved === 'light' ||
+              ((!saved || saved === 'system') &&
+                window.matchMedia('(prefers-color-scheme: light)').matches);
+            if (light) document.documentElement.classList.add('theme-light');
+            document.documentElement.style.colorScheme = light ? 'light' : 'dark';
           `}
         </Script>
       </head>
@@ -40,7 +48,17 @@ export default function RootLayout({
         <div id="root">{children}</div>
         <Script id="sw-script" strategy="afterInteractive">
           {`
-            if ('serviceWorker' in navigator) {
+            // Capacitor（iOS/Android）ネイティブでは Service Worker を使わない。
+            // アセットはアプリバンドルに同梱済みで、SW の controllerchange が
+            // 起動直後のリロードループを起こすため。
+            var isNativeShell = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+            if (isNativeShell) {
+              if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function (rs) {
+                  rs.forEach(function (r) { r.unregister(); });
+                }).catch(function () {});
+              }
+            } else if ('serviceWorker' in navigator) {
               let refreshing = false;
               navigator.serviceWorker.addEventListener('controllerchange', () => {
                 if (!refreshing) {

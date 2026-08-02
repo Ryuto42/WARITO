@@ -15,7 +15,21 @@ html, body {
   min-height: 100%;
 }
 
-html.theme-light body, html.theme-light .bg-\[\#050811\] {
+/* 時間割タブでのみページスクロールを止める（App.tsx が付け外しする） */
+html.lock-page-scroll,
+html.lock-page-scroll body {
+  overflow: hidden;
+  height: 100%;
+}
+
+/* 成績・アカウントは縦スクロール。iOS でのゴムバンドを内側に閉じ込める */
+html:not(.lock-page-scroll) body {
+  overscroll-behavior-y: contain;
+}
+
+/* html にも当てる。Web のラバーバンド領域や Android のオーバースクロールで
+   暗い地色が覗くのを防ぐ */
+html.theme-light, html.theme-light body, html.theme-light .bg-\[\#050811\] {
   background-color: #f1f5f9 !important;
 }
 
@@ -90,15 +104,6 @@ html.theme-light .bg-\[\#1A1A1A\] {
 }
 html.theme-light .custom-scrollbar::-webkit-scrollbar-thumb {
   background: #cbd5e1;
-}
-
-html.theme-light .term-btn {
-  background-color: rgba(255, 255, 255, 0.95) !important;
-  color: #0f172a !important;
-  border-color: rgba(255, 255, 255, 0.95) !important;
-}
-html.theme-light .term-btn:hover {
-  background-color: rgba(241, 245, 249, 0.95) !important;
 }
 
 html.theme-light .bg-slate-700\/50 {
@@ -199,6 +204,305 @@ html.theme-light .color-picker-active {
   border: none !important;
 }
 
-html.theme-light .nav-capsule {
-  background-color: rgba(14, 165, 233, 0.15) !important;
+/* --- ライトテーマ: 未対応だった暗色サーフェスの補完 --- */
+/* 罫線 */
+html.theme-light .border-white\/5,
+html.theme-light .border-white\/10,
+html.theme-light .border-gray-700,
+html.theme-light .border-slate-700\/50,
+html.theme-light .border-slate-900\/10,
+html.theme-light .border-slate-900\/40,
+html.theme-light .border-\[\#334155\],
+html.theme-light .border-\[\#334155\]\/50 {
+  border-color: #e2e8f0 !important;
+}
+
+/* カード・パネル面 */
+html.theme-light .bg-white\/10,
+html.theme-light .bg-gray-800\/50,
+html.theme-light .bg-gray-900\/50,
+html.theme-light .bg-slate-900\/50,
+html.theme-light .bg-\[\#0f172a\]\/60,
+html.theme-light .bg-\[\#1e293b\]\/60 {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+html.theme-light .bg-gray-700,
+html.theme-light .bg-gray-950,
+html.theme-light .bg-slate-800,
+html.theme-light .bg-\[\#334155\],
+html.theme-light .bg-\[\#2A2A2A\] {
+  background-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+/* モーダルの背景スクリム。ライトでも暗めに落とすが black ほど濃くしない。
+   bg-black/30,/40,/70,/80 は前方のルールでガラス面として扱っているので触らない */
+html.theme-light .bg-black\/50,
+html.theme-light .bg-black\/60 {
+  background-color: rgba(15, 23, 42, 0.38) !important;
+}
+
+/* ==========================================================================
+   Liquid Glass (iOS 26 標準デザイン準拠)
+   ボトムメニューバー / 左上・右上アイコンで使用
+   ========================================================================== */
+
+/* ダークモードの Liquid Glass は「白く光る板」ではなく「暗いスモークガラス」。
+   背景を明るくするのではなく暗く沈め、縁だけを細く光らせる。 */
+/* backdrop-filter だけを @supports に置く。
+   background-color をここに書くと、後続の .liquid-glass 規則と同じ詳細度のため
+   （@supports は詳細度を上げない）後勝ちで打ち消され、透明度が効かなくなる。
+   非対応環境向けの不透明フォールバックはファイル末尾の @supports not で指定。 */
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .liquid-glass {
+    -webkit-backdrop-filter: blur(20px) saturate(190%) brightness(0.97);
+    backdrop-filter: blur(20px) saturate(190%) brightness(0.97);
+  }
+}
+
+.liquid-glass {
+  position: relative;
+  isolation: isolate;
+  /* ::before / ::after の基準にするため position を持たせるが、
+     Tailwind の absolute/fixed/sticky を潰さないよう明示的に復帰させる */
+  border: none;
+  /* 背後がはっきり透ける濃さ。濃くすると地色が暗い本アプリでは板に見える */
+  background-color: rgba(12, 16, 27, 0.05);
+  color: #fff;
+  /* 外側の落ち影 + 内側のレンズ縁（上=細いハイライト / 下=わずかな拾い上げ光） */
+  box-shadow:
+    0 10px 36px rgba(0, 0, 0, 0.55),
+    0 2px 10px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0.5px rgba(255, 255, 255, 0.34),
+    inset 0 -1px 0.5px rgba(255, 255, 255, 0.1),
+    inset 0 0 20px rgba(0, 0, 0, 0.08);
+  transition:
+    transform 0.32s cubic-bezier(0.2, 0.9, 0.25, 1),
+    box-shadow 0.32s cubic-bezier(0.2, 0.9, 0.25, 1),
+    background-color 0.32s ease;
+  will-change: transform;
+}
+
+.liquid-glass.absolute { position: absolute; }
+.liquid-glass.fixed { position: fixed; }
+.liquid-glass.sticky { position: sticky; }
+
+/* 縁の屈折（lensing）: 枠だけをマスクした明暗グラデーション */
+.liquid-glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.25px;
+  /* 暗いガラスなので縁の光も控えめ。上端と下端だけ細く光らせる */
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.5) 0%,
+    rgba(255, 255, 255, 0.08) 26%,
+    rgba(255, 255, 255, 0) 50%,
+    rgba(255, 255, 255, 0.06) 72%,
+    rgba(255, 255, 255, 0.3) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* 鏡面反射（specular highlight）: 上面の光沢 */
+.liquid-glass::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(
+      120% 80% at 30% -20%,
+      rgba(255, 255, 255, 0.16) 0%,
+      rgba(255, 255, 255, 0.03) 40%,
+      rgba(255, 255, 255, 0) 70%
+    );
+  pointer-events: none;
+  opacity: 0.9;
+  z-index: 1;
+  transition: opacity 0.32s ease;
+}
+
+/* 押下時: わずかに沈み込み、ガラスが厚くなる */
+.liquid-glass:active {
+  transform: scale(0.94);
+  background-color: rgba(20, 26, 42, 0.16);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0.5px rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0.5px rgba(255, 255, 255, 0.16),
+    inset 0 0 24px rgba(0, 0, 0, 0.2);
+}
+.liquid-glass:active::after {
+  opacity: 1;
+}
+
+/* コンテンツを縁・光沢より前面へ。
+   絶対配置のカプセルは対象外にする（position を上書きすると配置が壊れるため） */
+.liquid-glass > *:not(.liquid-capsule):not(.liquid-capsule-track) {
+  position: relative;
+  z-index: 2;
+}
+.liquid-glass > .liquid-capsule,
+.liquid-glass > .liquid-capsule-track {
+  z-index: 0;
+}
+
+/* --- ライトテーマ --- */
+html.theme-light .liquid-glass {
+  background-color: rgba(255, 255, 255, 0.14);
+  color: #0f172a;
+  box-shadow:
+    0 8px 32px rgba(15, 23, 42, 0.12),
+    0 2px 8px rgba(15, 23, 42, 0.08),
+    inset 0 1px 0.5px rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0.5px rgba(15, 23, 42, 0.06),
+    inset 0 0 12px rgba(255, 255, 255, 0.5);
+}
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  html.theme-light .liquid-glass {
+    -webkit-backdrop-filter: blur(20px) saturate(190%) brightness(1.12);
+    backdrop-filter: blur(20px) saturate(190%) brightness(1.12);
+  }
+}
+html.theme-light .liquid-glass::before {
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 1) 0%,
+    rgba(255, 255, 255, 0.3) 28%,
+    rgba(15, 23, 42, 0.06) 52%,
+    rgba(255, 255, 255, 0.4) 74%,
+    rgba(255, 255, 255, 0.9) 100%
+  );
+}
+html.theme-light .liquid-glass::after {
+  background: radial-gradient(
+    120% 80% at 30% -20%,
+    rgba(255, 255, 255, 0.9) 0%,
+    rgba(255, 255, 255, 0.25) 40%,
+    rgba(255, 255, 255, 0) 70%
+  );
+}
+html.theme-light .liquid-glass:active {
+  background-color: rgba(255, 255, 255, 0.28);
+  box-shadow:
+    0 4px 16px rgba(15, 23, 42, 0.16),
+    inset 0 1px 0.5px rgba(255, 255, 255, 1),
+    inset 0 -1px 0.5px rgba(15, 23, 42, 0.08),
+    inset 0 0 24px rgba(255, 255, 255, 0.6);
+}
+
+/* タブバーの選択カプセル。
+   iOS 26 の挙動に合わせ「移動」と「伸縮」を別レイヤーに分ける:
+   - track が減衰バネで平行移動する
+   - capsule が進行中だけ横に伸び、着地で戻る（液体的なモーフ）*/
+.liquid-capsule-track {
+  transition:
+    transform 0.44s cubic-bezier(0.33, 1.12, 0.35, 1),
+    opacity 0.26s ease;
+  will-change: transform;
+}
+
+/* 暗いバーの上に浮く「一段明るいガラス」。上端の細いハイライトで立体感を出す */
+.liquid-capsule {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.2) 0%,
+    rgba(255, 255, 255, 0.09) 100%
+  );
+  box-shadow:
+    inset 0 1px 0.5px rgba(255, 255, 255, 0.45),
+    inset 0 -1px 0.5px rgba(255, 255, 255, 0.1),
+    0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.liquid-capsule.is-morphing {
+  animation: liquid-capsule-morph 0.44s cubic-bezier(0.33, 1.12, 0.35, 1);
+}
+
+@keyframes liquid-capsule-morph {
+  0%   { transform: scale(1, 1); }
+  38%  { transform: scale(1.13, 0.93); }
+  70%  { transform: scale(0.98, 1.02); }
+  100% { transform: scale(1, 1); }
+}
+html.theme-light .liquid-capsule {
+  background: linear-gradient(
+    180deg,
+    rgba(14, 165, 233, 0.22) 0%,
+    rgba(14, 165, 233, 0.12) 100%
+  );
+  box-shadow:
+    inset 0 1px 0.5px rgba(255, 255, 255, 0.9),
+    0 2px 8px rgba(15, 23, 42, 0.1);
+}
+
+/* backdrop-filter 非対応環境のフォールバック */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .liquid-glass { background-color: rgba(20, 24, 38, 0.88); }
+  html.theme-light .liquid-glass { background-color: rgba(255, 255, 255, 0.94); }
+}
+
+/* タブバーのサイズは固定。スクロールで畳む挙動は行わない */
+.liquid-tabbar-pill {
+  width: 16rem;
+  transition:
+    transform 0.42s cubic-bezier(0.33, 1.12, 0.35, 1),
+    opacity 0.28s ease,
+    box-shadow 0.32s ease,
+    background-color 0.32s ease;
+}
+
+/* --- アクセシビリティ設定への追従 ---
+   iOS 26.1 の「透明度を下げる」「コントラストを上げる」に合わせて
+   ガラスを不透明化し、可読性を優先する */
+@media (prefers-reduced-transparency: reduce) {
+  .liquid-glass {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background-color: rgba(16, 20, 32, 0.96);
+  }
+  html.theme-light .liquid-glass {
+    background-color: rgba(255, 255, 255, 0.98);
+  }
+  .liquid-glass::after { opacity: 0.25; }
+}
+
+@media (prefers-contrast: more) {
+  .liquid-glass {
+    background-color: rgba(10, 13, 22, 0.94);
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.5),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.85);
+  }
+  html.theme-light .liquid-glass {
+    background-color: rgba(255, 255, 255, 0.98);
+    box-shadow:
+      0 8px 32px rgba(15, 23, 42, 0.18),
+      inset 0 0 0 1px rgba(15, 23, 42, 0.7);
+  }
+  .liquid-glass::before { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liquid-glass,
+  .liquid-capsule-track,
+  .liquid-tabbar-pill {
+    transition-duration: 0.01ms;
+  }
+  .liquid-glass:active { transform: none; }
+  .liquid-capsule.is-morphing { animation: none; }
 }

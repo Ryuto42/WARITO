@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { PRESET_COLORS, dayMap, isArchivedClass } from '../types';
 import type { ClassInfo, ClassGradeStat } from '../types';
 import { fetchClassGradeStats } from '../utils/gradeStats';
-import { getGradeStatMatchScore } from '../utils/gradeStatMatching';
+import { selectGradeStatMatches } from '../utils/gradeStatMatching';
 
 const GradeStatCard = ({ stat }: { stat: ClassGradeStat }) => {
   const gradeItems = [
@@ -493,42 +493,19 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
     const fetchStats = async () => {
       try {
         const data = await fetchClassGradeStats();
-        const matched = data
-          .map((stat) => ({
-            stat,
-            score: getGradeStatMatchScore(
-              {
-                academic_year: cls.academic_year,
-                subject_name: cls.name,
-                subject_code: cls.subject_code,
-                instructor: cls.instructor,
-                semester: cls.semester,
-              },
-              stat,
-              { allowLooseNameMatch: false }
-            ),
-          }))
-          .filter(({ score }) => score > 0);
+        const nextStats = selectGradeStatMatches(
+          {
+            academic_year: cls.academic_year,
+            subject_name: cls.name,
+            subject_code: cls.subject_code,
+            instructor: cls.instructor,
+            semester: cls.semester,
+          },
+          data
+        );
         if (!isActive || currentClassId !== cls.id) {
           return;
         }
-
-        const nextStats = matched
-          .sort((a, b) => {
-            if (b.stat.year !== a.stat.year) return b.stat.year - a.stat.year;
-            const semesterDiff = b.score - a.score;
-            if (semesterDiff !== 0) return semesterDiff;
-            return a.stat.semester.localeCompare(b.stat.semester, 'ja');
-          })
-          .map(({ stat }) => stat)
-          .filter((stat, index, stats) => {
-            const firstIndex = stats.findIndex((candidate) =>
-              candidate.year === stat.year &&
-              candidate.semester === stat.semester &&
-              candidate.subject_name === stat.subject_name
-            );
-            return firstIndex === index;
-          });
 
         setGradeStats(nextStats);
       } catch(e) {}
