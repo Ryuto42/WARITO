@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
-import { supabase } from './supabaseClient';
+import { supabase, readPersistedSession } from './supabaseClient';
 import { ARCHIVE_DAY, PRESET_COLORS, defaultTimetableSetting, isArchivedClass } from './types';
 import type { ClassInfo, TimetableTermSetting, TimetableSettingsRecord, GradeInfo } from './types';
 import TimetableTab from './components/TimetableTab';
@@ -13,6 +13,16 @@ import { GradeAddModal } from './components/GradeModals';
 import GradesTab from './components/GradesTab';
 import SearchModal from './components/SearchModal';
 import pako from 'pako';
+import {
+  CACHE_KEYS,
+  readCacheSync,
+  writeCache,
+  writeCacheIfChanged,
+  clearCache,
+  hydrateFromNativeStore,
+} from './utils/localCache';
+import { initNativeShell, isNative, notifyHaptic } from './utils/native';
+import { applyTheme, resolveTheme, watchSystemTheme } from './utils/theme';
 
 const MAX_SHARE_PARAM_LENGTH = 12_000;
 const MAX_SHARE_CLASSES = 200;
@@ -63,33 +73,26 @@ const normalizeImportedClass = (raw: any): Partial<ClassInfo> => {
 
 const App = () => {
 
-  const [session, setSession] = useState<any>(null);
+  // 保存済みセッションから同期で復帰する。オフラインでも即座に時間割を出すため、
+  // getSession()（期限切れならネットワーク更新を試みる）の完了を待たない。
+  const [session, setSession] = useState<any>(() => readPersistedSession());
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => readPersistedSession() === null);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
   const [authSuccess, setAuthSuccess] = useState('');
 
-  const [classes, setClasses] = useState<ClassInfo[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('waritoClassesCache');
-      if (saved) {
-        try { return JSON.parse(saved); } catch (e) {}
-      }
-    }
-    return [];
-  });
-  const [grades, setGrades] = useState<GradeInfo[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('waritoGradesCache');
-      if (saved) {
-        try { return JSON.parse(saved); } catch (e) {}
-      }
-    }
-    return [];
-  });
+  // 端末内キャッシュから同期的に復元し、通信が遅くても即座に時間割を描画する
+  const [classes, setClasses] = useState<ClassInfo[]>(
+    () => readCacheSync<ClassInfo[]>(CACHE_KEYS.classes) ?? []
+  );
+  const [grades, setGrades] = useState<GradeInfo[]>(
+    () => readCacheSync<GradeInfo[]>(CACHE_KEYS.grades) ?? []
+  );
+  // サーバー側の内容がキャッシュと異なっていた場合、トップ画面から起動し直すためのキー
+  const [appEpoch, setAppEpoch] = useState(0);
   const [activeTab, setActiveTab] = useState<'timetable' | 'grades' | 'account'>('timetable');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isClosingAdd, setIsClosingAdd] = useState(false);
@@ -102,13 +105,12 @@ const App = () => {
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [isClosingSearch, setIsClosingSearch] = useState(false);
 
-  const [currentYear, setCurrentYear] = useState<number>(() => {
-    const saved = localStorage.getItem('waritoCurrentYear');
-    return saved ? parseInt(saved, 10) : 2026;
-  });
-  const [currentSemester, setCurrentSemester] = useState<string>(() => {
-    return localStorage.getItem('waritoCurrentSemester') || '春学期';
-  });
+  const [currentYear, setCurrentYear] = useState<number>(
+    () => readCacheSync<number>(CACHE_KEYS.year) ?? 2026
+  );
+  const [currentSemester, setCurrentSemester] = useState<string>(
+    () => readCacheSync<string>(CACHE_KEYS.semester) ?? '春学期'
+  );
 
   const [timetableSettings, setTimetableSettings] = useState<TimetableSettingsRecord>({});
   
@@ -122,6 +124,28 @@ const App = () => {
   const closeAppAlert = () => {
     setGlobalAlert(prev => ({ ...prev, isClosing: true }));
     setTimeout(() => setGlobalAlert({ isOpen: false, isClosing: false, msg: '' }), 200);
+  };
+
+  /**
+   * 保存済みの内容とサーバーの内容に差分があったときに呼ぶ。
+   * 開いているモーダルをすべて閉じ、時間割タブ（トップ画面）に戻して
+   * 画面ツリーを作り直す。
+   */
+  const restartFromTop = () => {
+    setSelectedClass(null);
+    setIsAddModalOpen(false);
+    setIsClosingAdd(false);
+    setIsGradeAddModalOpen(false);
+    setIsClosingGradeAdd(false);
+    setIsSearchModalOpen(false);
+    setIsClosingSearch(false);
+    setIsProcessing(false);
+    setIsClosingProcessing(false);
+    setGlobalAlert({ isOpen: false, isClosing: false, msg: '' });
+    setActiveTab('timetable');
+    window.scrollTo(0, 0);
+    setAppEpoch((n) => n + 1);
+    notifyHaptic('success');
   };
 
   const stopProcessing = () => {
@@ -166,59 +190,101 @@ const App = () => {
     window.scrollTo(0, 0);
   }, [activeTab]);
 
+  // 時間割タブだけページスクロールを止める。
+  // 直前値の退避・復元は順序次第で 'hidden' が残るため、クラスの付け外しで冪等にする。
   useEffect(() => {
-    const previousBodyOverflow = document.body.style.overflow;
-    const previousHtmlOverflow = document.documentElement.style.overflow;
-
-    if (activeTab === 'timetable') {
-      document.body.style.overflow = 'hidden';
-      document.documentElement.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-      document.documentElement.style.overflow = '';
-    }
-
-    return () => {
-      document.body.style.overflow = previousBodyOverflow;
-      document.documentElement.style.overflow = previousHtmlOverflow;
-    };
+    const root = document.documentElement;
+    root.classList.toggle('lock-page-scroll', activeTab === 'timetable');
+    return () => root.classList.remove('lock-page-scroll');
   }, [activeTab]);
 
   useEffect(() => {
-    localStorage.setItem('waritoCurrentYear', currentYear.toString());
-    localStorage.setItem('waritoCurrentSemester', currentSemester);
+    writeCache(CACHE_KEYS.year, currentYear);
+    writeCache(CACHE_KEYS.semester, currentSemester);
   }, [currentYear, currentSemester]);
 
+  // ネイティブ（iOS）シェルの初期化と、端末内ストレージからのキャッシュ復元
+  // 端末のダーク/ライト設定に追従する（テーマ設定が「端末に合わせる」のとき）
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) {
+    applyTheme(resolveTheme());
+    return watchSystemTheme(() => {});
+  }, []);
+
+  useEffect(() => {
+    initNativeShell();
+    hydrateFromNativeStore().then((restored) => {
+      const cachedClasses = restored[CACHE_KEYS.classes] as ClassInfo[] | undefined;
+      const cachedGrades = restored[CACHE_KEYS.grades] as GradeInfo[] | undefined;
+      const cachedSettings = restored[CACHE_KEYS.settings] as TimetableSettingsRecord | undefined;
+      if (cachedClasses) setClasses(cachedClasses);
+      if (cachedGrades) setGrades(cachedGrades);
+      if (cachedSettings) setTimetableSettings(cachedSettings);
+    });
+  }, []);
+
+  // バックグラウンド復帰時に再取得し、差分があればトップから起動し直す
+  useEffect(() => {
+    if (!isNative()) return;
+    let listener: any;
+    CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+      if (!isActive) return;
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (!session) return;
         fetchClasses(session.user.id);
         fetchGrades(session.user.id);
-      }
-      setLoading(false);
-    });
+      });
+    }).then((l) => { listener = l; });
+    return () => { if (listener) listener.remove(); };
+  }, []);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
+  useEffect(() => {
+    // オフラインだと getSession() が長時間解決しないことがあるため、
+    // 一定時間で打ち切ってキャッシュ内容のまま描画を続行する
+    let settled = false;
+    const finishLoading = () => {
+      if (settled) return;
+      settled = true;
+      setLoading(false);
+    };
+    const loadingTimer = window.setTimeout(finishLoading, 2500);
+
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        if (session) {
+          setSession(session);
+          fetchClasses(session.user.id);
+          fetchGrades(session.user.id);
+        } else if (!readPersistedSession()) {
+          // 保存トークン自体が無い＝本当に未ログイン。
+          // 通信失敗で null が返っただけの場合は、復元済みセッションを維持する
+          setSession(null);
+        }
+      })
+      .catch((e) => console.error('getSession failed', e))
+      .finally(() => {
+        window.clearTimeout(loadingTimer);
+        finishLoading();
+      });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
+        setSession(session);
         fetchClasses(session.user.id);
         fetchGrades(session.user.id);
         if (!localStorage.getItem('waritoWelcomeDone')) {
           setShowWelcome(true);
           localStorage.setItem('waritoWelcomeDone', 'true');
         }
+        return;
       }
+      // 明示的なサインアウト以外（オフラインでのトークン更新失敗など）では
+      // ログイン状態を落とさない
+      if (event === 'SIGNED_OUT' || !readPersistedSession()) setSession(null);
     });
 
-    const saved = localStorage.getItem('waritoSettings');
-    if (saved) {
-      try {
-        setTimetableSettings(JSON.parse(saved));
-      } catch (e) {
-        console.error('Failed to parse settings');
-      }
-    }
+    const saved = readCacheSync<TimetableSettingsRecord>(CACHE_KEYS.settings);
+    if (saved) setTimetableSettings(saved);
 
     const params = new URLSearchParams(window.location.search);
     const shareParam = params.get('share');
@@ -273,27 +339,47 @@ const App = () => {
     const key = `${currentYear}-${currentSemester}`;
     const newSettings = { ...timetableSettings, [key]: setting };
     setTimetableSettings(newSettings);
-    localStorage.setItem('waritoSettings', JSON.stringify(newSettings));
+    writeCache(CACHE_KEYS.settings, newSettings);
   };
 
   const currentSetting = timetableSettings[`${currentYear}-${currentSemester}`] || defaultTimetableSetting;
 
-  const fetchClasses = async (userId: string) => {
-    const { data, error } = await supabase.from('classes').select('*').eq('user_id', userId);
-    if (data) {
-      setClasses(data);
-      localStorage.setItem('waritoClassesCache', JSON.stringify(data));
-    }
-    if (error) console.error(error);
+  /**
+   * サーバーの内容がキャッシュと違っていた場合はキャッシュを更新し、
+   * トップ画面（時間割タブ）から画面を作り直す。
+   * ユーザー自身の編集による再取得では再起動しないよう silent を渡す。
+   */
+  const applyRemoteRows = <T,>(
+    key: typeof CACHE_KEYS.classes | typeof CACHE_KEYS.grades,
+    rows: T[],
+    setRows: (rows: T[]) => void,
+    silent: boolean
+  ) => {
+    const hadCache = readCacheSync<T[]>(key) !== null;
+    const changed = writeCacheIfChanged(key, rows);
+    setRows(rows);
+    if (changed && hadCache && !silent) restartFromTop();
   };
 
-  const fetchGrades = async (userId: string) => {
-    const { data, error } = await supabase.from('grades').select('*').eq('user_id', userId);
-    if (data) {
-      setGrades(data);
-      localStorage.setItem('waritoGradesCache', JSON.stringify(data));
+  // オフラインでは取得に失敗するが、キャッシュ表示を維持したいので握りつぶす
+  const fetchClasses = async (userId: string, silent = false) => {
+    try {
+      const { data, error } = await supabase.from('classes').select('*').eq('user_id', userId);
+      if (data) applyRemoteRows(CACHE_KEYS.classes, data as ClassInfo[], setClasses, silent);
+      if (error) console.error(error);
+    } catch (e) {
+      console.error('fetchClasses failed (offline?)', e);
     }
-    if (error) console.error(error);
+  };
+
+  const fetchGrades = async (userId: string, silent = false) => {
+    try {
+      const { data, error } = await supabase.from('grades').select('*').eq('user_id', userId);
+      if (data) applyRemoteRows(CACHE_KEYS.grades, data as GradeInfo[], setGrades, silent);
+      if (error) console.error(error);
+    } catch (e) {
+      console.error('fetchGrades failed (offline?)', e);
+    }
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -374,8 +460,7 @@ const App = () => {
     await supabase.auth.signOut();
     setClasses([]);
     setGrades([]);
-    localStorage.removeItem('waritoClassesCache');
-    localStorage.removeItem('waritoGradesCache');
+    clearCache([CACHE_KEYS.classes, CACHE_KEYS.grades]);
   };
 
   const switchAuthMode = (mode: 'signin' | 'signup') => {
@@ -440,7 +525,7 @@ const App = () => {
       const { id, faculty_dept, ...updateData } = finalPayload;
       const { error } = await supabase.from('classes').update(updateData).eq('id', finalPayload.id).eq('user_id', session.user.id);
       if (!error) {
-        fetchClasses(session.user.id);
+        fetchClasses(session.user.id, true);
         if (selectedClass && selectedClass.id === finalPayload.id) {
           setSelectedClass({ ...selectedClass, ...finalPayload } as ClassInfo);
         }
@@ -462,7 +547,7 @@ const App = () => {
       };
       const { error } = await supabase.from('classes').insert([classPayload]);
       if (!error) {
-        fetchClasses(session.user.id);
+        fetchClasses(session.user.id, true);
         setIsAddModalOpen(false);
       } else {
         console.error(error);
@@ -475,7 +560,7 @@ const App = () => {
   const handleDeleteClass = async (id: string) => {
     const { error } = await supabase.from('classes').delete().eq('id', id).eq('user_id', session.user.id);
     if (!error) {
-      fetchClasses(session.user.id);
+      fetchClasses(session.user.id, true);
       setIsClosingDetail(true);
       setTimeout(() => {
         setSelectedClass(null);
@@ -502,7 +587,7 @@ const App = () => {
       .eq('faculty_dept', facultyDept);
 
     if (!error) {
-      fetchClasses(session.user.id);
+      fetchClasses(session.user.id, true);
     } else {
       console.error(error);
       showAppAlert('カラーの更新に失敗しました');
@@ -581,7 +666,7 @@ const App = () => {
     }
 
     if (!hasError) {
-      fetchGrades(session.user.id);
+      fetchGrades(session.user.id, true);
       closeGradeAddModalWithAnim();
       showAppAlert(`更新: ${toUpdate.length}件、新規追加: ${toInsert.length}件 の成績を保存しました！`);
     } else {
@@ -618,7 +703,7 @@ const App = () => {
         if (!error) imported++;
       }
     }
-    fetchClasses(session.user.id);
+    fetchClasses(session.user.id, true);
     if (shareImportData.year) setCurrentYear(shareImportData.year);
     if (shareImportData.semester) setCurrentSemester(shareImportData.semester);
     setIsClosingImport(true);
@@ -818,7 +903,7 @@ const App = () => {
           <div className="max-w-5xl mx-auto flex justify-between items-center py-4 sm:py-6 px-4 sm:px-6">
             <button 
               onClick={() => setIsSearchModalOpen(true)}
-              className="w-10 h-10 sm:w-12 sm:h-12 bg-black/30 backdrop-blur-md border border-white/10 text-white rounded-full flex items-center justify-center shadow-lg transition-all hover:scale-105 active:scale-95 pointer-events-auto"
+              className="liquid-glass w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center pointer-events-auto"
             >
               <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -834,16 +919,16 @@ const App = () => {
 
             <button 
               onClick={() => setActiveTab('account')}
-              className={`w-10 h-10 sm:w-12 sm:h-12 bg-black/30 backdrop-blur-md border border-white/10 rounded-full flex items-center justify-center shadow-lg transition-all hover:scale-105 active:scale-95 pointer-events-auto ${activeTab === 'account' ? 'ring-2 ring-sky-500' : ''}`}
+              className={`liquid-glass w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center pointer-events-auto ${activeTab === 'account' ? 'ring-2 ring-sky-500' : ''}`}
             >
-              <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
             </button>
           </div>
         </header>
 
-        <div className="mt-[calc(5rem+env(safe-area-inset-top))] sm:mt-[calc(6rem+env(safe-area-inset-top))]">
+        <div key={appEpoch} className="mt-[calc(5rem+env(safe-area-inset-top))] sm:mt-[calc(6rem+env(safe-area-inset-top))] animate-fade-in">
 
         {activeTab === 'timetable' && (
           <TimetableTab 

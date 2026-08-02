@@ -30,17 +30,8 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
   const [isClosingTerm, setIsClosingTerm] = useState(false);
   const [modalYear, setModalYear] = useState(currentYear);
   const [modalSemester, setModalSemester] = useState(currentSemester);
-  const [isIOSWebkit, setIsIOSWebkit] = useState(false);
   const [slotPicker, setSlotPicker] = useState<{ day: string; period: number } | null>(null);
   const [isClosingSlotPicker, setIsClosingSlotPicker] = useState(false);
-
-  useEffect(() => {
-    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
-    const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
-    if (isIOS && isSafari) {
-      setIsIOSWebkit(true);
-    }
-  }, []);
 
   const SEMESTER_OPTIONS = [
     { label: '1学期 / 前期 / 春学期', value: '春学期' },
@@ -199,14 +190,11 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
         </div>
       </div>
 
-      <div className={`fixed left-1/2 -translate-x-1/2 z-[50] transition-all duration-300 ${
-        isIOSWebkit 
-          ? 'bottom-[calc(6rem+env(safe-area-inset-bottom))]' 
-          : 'bottom-[7.5rem] sm:bottom-[8.5rem]'
-      }`}>
-        <button 
+      {/* iOS/Android/Web で同じ計算にする。env() は非対応環境では 0 に評価される */}
+      <div className="fixed left-1/2 -translate-x-1/2 z-[50] bottom-[calc(6rem+env(safe-area-inset-bottom))]">
+        <button
           onClick={handleOpenTermModal}
-          className="term-btn bg-black/30 backdrop-blur-md border border-white/10 rounded-full px-4 py-2 sm:py-2.5 shadow-lg text-white text-[9px] sm:text-[11px] font-bold tracking-widest hover:bg-black/50 active:scale-95 transition-all flex items-center gap-2"
+          className="liquid-glass rounded-full px-4 py-2 sm:py-2.5 text-[9px] sm:text-[11px] font-bold tracking-widest flex items-center gap-2"
         >
           <span>{currentYear}年度</span>
           <span className="text-sky-400 mx-1">|</span>
