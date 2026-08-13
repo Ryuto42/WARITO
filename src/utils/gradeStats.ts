@@ -1,8 +1,7 @@
 import { supabase } from '../supabaseClient';
 import type { ClassGradeStat } from '../types';
 
-// 成績統計は約1,700行あり、行を開くたびに取り直すと重い。
-// セッション中は取得結果を使い回す（同時呼び出しも1リクエストに束ねる）。
+// 約1,700行あり重いため、セッション中はキャッシュして使い回す（同時呼び出しも1リクエストに束ねる）
 const statsCache = new Map<string, Promise<ClassGradeStat[]>>();
 
 export const fetchClassGradeStats = (year?: number): Promise<ClassGradeStat[]> => {

@@ -16,7 +16,6 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  // ブラウザ/PWA のクロームもテーマに追従させる
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#f1f5f9' },
     { media: '(prefers-color-scheme: dark)', color: '#050811' },
@@ -34,7 +33,6 @@ export default function RootLayout({
       <head>
         <Script id="theme-script" strategy="beforeInteractive">
           {`
-            // 未設定なら端末のダーク/ライト設定に追従する
             var saved = localStorage.getItem('waritoTheme');
             var light = saved === 'light' ||
               ((!saved || saved === 'system') &&
@@ -48,9 +46,7 @@ export default function RootLayout({
         <div id="root">{children}</div>
         <Script id="sw-script" strategy="afterInteractive">
           {`
-            // Capacitor（iOS/Android）ネイティブでは Service Worker を使わない。
-            // アセットはアプリバンドルに同梱済みで、SW の controllerchange が
-            // 起動直後のリロードループを起こすため。
+            // ネイティブ(Capacitor)では SW 未使用: controllerchange が起動直後のリロードループを起こすため
             var isNativeShell = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
             if (isNativeShell) {
               if ('serviceWorker' in navigator) {

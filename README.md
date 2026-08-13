@@ -3,6 +3,8 @@
 **WARITO** is a modern web app for managing your university timetable.  
 Paste syllabus text to auto-extract course info, or add classes manually — all in a sleek dark-mode interface.
 
+ **Live app:** [https://warito.pages.dev](https://warito.pages.dev)
+
 ## ✨ Features
 
 - **Syllabus Auto-Parse** — Paste syllabus text to automatically extract course name, faculty, day/period, instructor, evaluation criteria, and more

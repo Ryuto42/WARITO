@@ -71,7 +71,6 @@ const AccountTab: React.FC<AccountTabProps> = ({
               const rowVal = row[k];
               if (rowVal !== undefined && rowVal !== null) return String(rowVal).trim();
             }
-            // Fuzzy search for header keys if exact match failed
             const rowKeys = Object.keys(row);
             for (const key of keys) {
                const foundKey = rowKeys.find(rk => rk.includes(key) || key.includes(rk));
@@ -124,7 +123,7 @@ const AccountTab: React.FC<AccountTabProps> = ({
             return;
           }
 
-          // Deduplicate rows based on conflict keys to avoid "ON CONFLICT DO UPDATE command cannot affect row a second time"
+          // dedupe by conflict key: upsert errors if the same row appears twice ("ON CONFLICT DO UPDATE command cannot affect row a second time")
           const uniqueStatsMap = new Map();
           stats.forEach(s => {
              const key = `${s.subject_name}-${s.year}-${s.semester}-${s.instructor}`;
@@ -164,7 +163,6 @@ const AccountTab: React.FC<AccountTabProps> = ({
     setTimeout(() => setConfirmDeleteState({ isOpen: false, isClosing: false }), 200);
   };
   
-  // 「端末に合わせる」を既定にして、ダーク/ライトどちらの端末設定にも追従させる
   const [themePref, setThemePref] = useState<ThemePreference>(() => getThemePreference());
 
   useEffect(() => watchSystemTheme(() => setThemePref(getThemePreference())), []);

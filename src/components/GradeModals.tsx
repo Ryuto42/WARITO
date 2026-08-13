@@ -20,7 +20,6 @@ export const GradeAddModal: React.FC<GradeAddModalProps> = ({ isOpen, isClosing,
       const gradesToSave: Omit<GradeInfo, 'id' | 'user_id' | 'created_at' | 'updated_at'>[] = [];
 
       let startIdx = 0;
-      // 最初のデータ行（数字で始まり、タブが含まれる行）を探す
       const firstDataIdx = lines.findIndex(l => /^\d+\t/.test(l));
       if (firstDataIdx !== -1) {
         startIdx = firstDataIdx;
@@ -28,8 +27,7 @@ export const GradeAddModal: React.FC<GradeAddModalProps> = ({ isOpen, isClosing,
 
       for (let i = startIdx; i < lines.length; i++) {
         const parts = lines[i].split('\t');
-        // 最低限の列数があるか確認（サンプルの場合13列）
-        if (parts.length >= 13) {
+        if (parts.length >= 13) { // サンプル形式で13列
           gradesToSave.push({
             no: parseInt(parts[0], 10),
             category_large: parts[1],

@@ -37,7 +37,7 @@ export const normalizeMatchValue = (value: string | undefined) => (
     .replace(/[‐‑‒–—―ーｰ-]/g, '-')
 );
 
-// 【Aブロック】/＜理工共通＞/末尾の * など、開講区分を表す装飾を丸ごと除去する
+// 【Aブロック】/＜理工共通＞/末尾の * などの開講区分表記を除去
 const stripSectionMarkers = (value: string) => (
   value
     .replace(/【[^】]*】/g, '')
@@ -100,8 +100,7 @@ export const getGradeStatMatch = (
   let tier: GradeStatMatchTier = 0;
   let score = 0;
 
-  // 科目コードは完全一致のみ採用する。
-  // 前方一致は「GSP20600 図形の世界 / GSP20690 社会学」のように別科目を誤結合するため使わない。
+  // 科目コードは完全一致のみ採用（前方一致だと別科目を誤結合しうる）
   if (targetCodes.some((code) => statCodes.includes(code))) {
     tier = 3;
     score = 100;
@@ -116,7 +115,7 @@ export const getGradeStatMatch = (
       targetName.base.includes(statName.base) ||
       statName.base.includes(targetName.base))
   ) {
-    // あいまい一致は担当教員が一致する場合に限る（別科目の混入防止）
+    // あいまい一致は担当教員一致時のみ（別科目混入防止）
     tier = 1;
     score = 25;
   }
@@ -157,7 +156,7 @@ export const selectGradeStatMatches = (
   const bestTier = Math.max(...matches.map((m) => m.tier));
   let candidates = matches.filter((m) => m.tier === bestTier);
 
-  // 同名の別ブロックが並ぶ場合は担当教員が一致するものだけを残す
+  // 同名別ブロック対策: 担当教員が一致するものだけ残す
   const withInstructor = candidates.filter((m) => getInstructorBonus(target, m.stat) > 0);
   if (withInstructor.length > 0) candidates = withInstructor;
 

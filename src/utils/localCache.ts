@@ -1,13 +1,7 @@
 import { Preferences } from '@capacitor/preferences';
 import { isNative } from './native';
 
-/**
- * 端末内ストレージ（iOS では Capacitor Preferences = UserDefaults）に
- * 時間割・成績を保存し、通信が遅い/切れている場合でも即座に描画できるようにする。
- *
- * - 起動時は localStorage から同期的に読み出して初回描画に間に合わせる
- * - 同じ内容を Preferences にも非同期で書き戻し、WebView のデータ削除に耐える
- */
+// localStorage（同期・初回描画用）と Preferences（非同期・WebView再作成に耐える永続化）の二重保存
 
 export const CACHE_KEYS = {
   classes: 'waritoClassesCache',
@@ -21,14 +15,10 @@ export type CacheKey = (typeof CACHE_KEYS)[keyof typeof CACHE_KEYS];
 
 const memory = new Map<string, string>();
 
-/**
- * Preferences は静的 import で受け取る。
- * async 関数から Capacitor のプロキシを return すると、await 時の thenable 判定で
- * `.then` プロパティにアクセスされ、プロキシがそれをネイティブ呼び出しに転送して
- * 「"Preferences.then()" is not implemented」で必ず reject する。
- */
+// Preferences は静的importで受け取る: async関数からCapacitorのプロキシをreturnすると、
+// await時の thenable 判定で `.then` にアクセスされ、プロキシがそれをネイティブ呼び出しに
+// 転送して "Preferences.then() is not implemented" で必ず reject する。
 
-/** 同期読み出し（初回描画用）。localStorage が空なら null */
 export const readCacheSync = <T,>(key: CacheKey): T | null => {
   let raw: string | null = null;
   try {
@@ -40,16 +30,12 @@ export const readCacheSync = <T,>(key: CacheKey): T | null => {
   try {
     return JSON.parse(raw) as T;
   } catch {
-    // 旧バージョンは年度・学期を生の文字列で保存していたため、そのまま返す
+    // 旧バージョンが年度・学期を生の文字列で保存していた名残
     return raw as unknown as T;
   }
 };
 
-/**
- * 起動時に localStorage と Preferences を突き合わせる。
- * - localStorage に無く Preferences にある → 復元して返す（WebView のデータが消えた場合）
- * - localStorage にあり Preferences に無い → 書き戻す（取りこぼしの補完）
- */
+// localStorageに無くPreferencesにあれば復元、逆はPreferencesへ書き戻す
 export const hydrateFromNativeStore = async (keys: CacheKey[] = Object.values(CACHE_KEYS)) => {
   if (!isNative()) return {} as Record<string, unknown>;
   const restored: Record<string, unknown> = {};
@@ -77,7 +63,7 @@ export const hydrateFromNativeStore = async (keys: CacheKey[] = Object.values(CA
   return restored;
 };
 
-/** 書き込み。localStorage は同期、Preferences は非同期で追従させる */
+// localStorageは同期、Preferencesは非同期で追従して書く
 export const writeCache = (key: CacheKey, value: unknown) => {
   const raw = JSON.stringify(value);
   memory.set(key, raw);
@@ -105,11 +91,7 @@ export const clearCache = (keys: CacheKey[] = Object.values(CACHE_KEYS)) => {
   }
 };
 
-/**
- * サーバーから取得した内容がキャッシュと異なるかを判定する。
- * 行の並び順や updated_at の表記ゆれで誤検知しないよう、id 昇順に整列し
- * キーもソートしてから比較する。
- */
+// 行の並び順やキー順の違いで誤検知しないよう、id昇順・キーソート済みで比較するための正規化
 const stableStringify = (value: unknown): string => {
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
   if (value && typeof value === 'object') {
@@ -129,7 +111,6 @@ const canonicalizeRows = (rows: unknown) => {
   return stableStringify(sorted);
 };
 
-/** キャッシュと差分があれば true。あわせて新しい内容を保存する */
 export const writeCacheIfChanged = (key: CacheKey, nextRows: unknown): boolean => {
   const previous = readCacheSync(key);
   const changed = canonicalizeRows(previous) !== canonicalizeRows(nextRows);
