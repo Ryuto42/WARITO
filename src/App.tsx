@@ -21,7 +21,7 @@ import {
   clearCache,
   hydrateFromNativeStore,
 } from './utils/localCache';
-import { initNativeShell, isNative, notifyHaptic } from './utils/native';
+import { initNativeShell, isNative, notifyHaptic, usesNativeGlassControls } from './utils/native';
 import { applyTheme, resolveTheme, watchSystemTheme } from './utils/theme';
 
 const MAX_SHARE_PARAM_LENGTH = 12_000;
@@ -72,6 +72,7 @@ const normalizeImportedClass = (raw: any): Partial<ClassInfo> => {
 };
 
 const App = () => {
+  const nativeGlassControls = usesNativeGlassControls();
 
   // 保存済みセッションから同期で復帰する。オフラインでも即座に時間割を出すため、
   // getSession()（期限切れならネットワーク更新を試みる）の完了を待たない。
@@ -903,7 +904,8 @@ const App = () => {
           <div className="max-w-5xl mx-auto flex justify-between items-center py-4 sm:py-6 px-4 sm:px-6">
             <button 
               onClick={() => setIsSearchModalOpen(true)}
-              className="liquid-glass w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center pointer-events-auto"
+              aria-label="授業を検索"
+              className={`liquid-glass liquid-glass-control liquid-search-button w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center pointer-events-auto touch-manipulation ${nativeGlassControls ? 'invisible pointer-events-none' : ''}`}
             >
               <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -919,7 +921,8 @@ const App = () => {
 
             <button 
               onClick={() => setActiveTab('account')}
-              className={`liquid-glass w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center pointer-events-auto ${activeTab === 'account' ? 'ring-2 ring-sky-500' : ''}`}
+              aria-label="アカウント"
+              className={`liquid-glass liquid-glass-control liquid-account-button w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center pointer-events-auto touch-manipulation ${activeTab === 'account' ? 'is-active' : ''} ${nativeGlassControls ? 'invisible pointer-events-none' : ''}`}
             >
               <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -1001,9 +1004,18 @@ const App = () => {
            onClassClick={setSelectedClass}
         />
 
-        <Navigation 
-          activeTab={activeTab} 
-          setActiveTab={setActiveTab} 
+        <Navigation
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          currentYear={currentYear}
+          currentSemester={currentSemester}
+          onSearchClick={() => setIsSearchModalOpen(true)}
+          // ネイティブのタブバーは常に WebView より前面に出るため、
+          // モーダル表示中は隠す（Web 版では z-index で解決するので影響なし）
+          hidden={
+            isAddModalOpen || isGradeAddModalOpen || isSearchModalOpen || isProcessing ||
+            selectedClass !== null || globalAlert.isOpen || showWelcome || shareImportData !== null
+          }
           onAddClick={() => {
             if (activeTab === 'grades') {
               setIsGradeAddModalOpen(true);

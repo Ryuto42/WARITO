@@ -1,15 +1,90 @@
 import React from 'react';
-import { selectionHaptic, impactHaptic } from '../utils/native';
+import {
+  selectionHaptic,
+  impactHaptic,
+  usesNativeTabBar,
+  syncNativeTabBar,
+  bindNativeTabBar,
+  syncNativeGlassControls,
+  bindNativeGlassControls,
+} from '../utils/native';
 
 interface NavigationProps {
   activeTab: 'timetable' | 'grades' | 'account';
   setActiveTab: (tab: 'timetable' | 'grades' | 'account') => void;
   onAddClick: () => void;
+  onSearchClick: () => void;
+  currentYear: number;
+  currentSemester: string;
+  /** モーダル表示中など、バーを隠したいとき */
+  hidden?: boolean;
 }
 
-const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab, onAddClick }) => {
+const Navigation: React.FC<NavigationProps> = ({
+  activeTab,
+  setActiveTab,
+  onAddClick,
+  onSearchClick,
+  currentYear,
+  currentSemester,
+  hidden = false,
+}) => {
   // 切替のたびに key を変えて、伸縮アニメーションを最初から再生させる
   const [morphKey, setMorphKey] = React.useState(0);
+  // iOS は OS の Liquid Glass を使うため、バーはネイティブ側が描画する
+  const native = usesNativeTabBar();
+
+  const latest = React.useRef({ setActiveTab, onAddClick, onSearchClick });
+  React.useEffect(() => { latest.current = { setActiveTab, onAddClick, onSearchClick }; });
+
+  React.useEffect(() => bindNativeTabBar({
+    onTab: (tab) => latest.current.setActiveTab(tab),
+    onAdd: () => latest.current.onAddClick(),
+  }), []);
+
+  React.useEffect(() => bindNativeGlassControls({
+    onSearch: () => latest.current.onSearchClick(),
+    onAccount: () => latest.current.setActiveTab('account'),
+    // 学期モーダルは時間割側が所有しているため、DOMイベントで橋渡しする。
+    onTerm: () => window.dispatchEvent(new Event('waritoNativeTerm')),
+  }), []);
+
+  // ネイティブのバーは常に WebView より前面に出るので、モーダル表示中は隠す。
+  // 個別に列挙すると子コンポーネント内のモーダル（学期選択など）を取りこぼすため、
+  // 全モーダルが使っている `fixed inset-0` のオーバーレイを DOM で監視する。
+  const [overlayOpen, setOverlayOpen] = React.useState(false);
+  React.useEffect(() => {
+    if (!native) return;
+    const check = () => setOverlayOpen(!!document.querySelector('div.fixed.inset-0'));
+    check();
+    const mo = new MutationObserver(check);
+    mo.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+    return () => mo.disconnect();
+  }, [native]);
+
+  React.useEffect(() => {
+    syncNativeTabBar({ activeTab, visible: !hidden && !overlayOpen });
+  }, [activeTab, hidden, overlayOpen]);
+
+  React.useEffect(() => {
+    syncNativeGlassControls({
+      activeTab,
+      visible: !hidden && !overlayOpen,
+      year: currentYear,
+      semester: currentSemester,
+    });
+  }, [activeTab, currentYear, currentSemester, hidden, overlayOpen]);
+
+  // ログアウト等でアンマウントされたらネイティブバーも隠す
+  React.useEffect(() => () => {
+    syncNativeTabBar({ activeTab: 'timetable', visible: false });
+    syncNativeGlassControls({
+      activeTab: 'timetable',
+      visible: false,
+      year: 0,
+      semester: '',
+    });
+  }, []);
 
   const handleTab = (tab: 'timetable' | 'grades') => {
     if (tab !== activeTab) {
@@ -19,12 +94,15 @@ const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab, onAddC
     setActiveTab(tab);
   };
 
+  // ネイティブバー使用時は Web 側を描画しない（二重表示を防ぐ）
+  if (native) return null;
+
   const tabLabel = (tab: 'timetable' | 'grades', label: string) => (
     <button
       onClick={() => handleTab(tab)}
       aria-label={label}
       className={`flex-1 flex items-center justify-center relative z-10 h-full rounded-full transition-colors duration-200 font-bold text-xs tracking-wider ${
-        activeTab === tab ? 'text-sky-400' : 'text-slate-400 hover:text-white'
+        activeTab === tab ? 'text-[#0A84FF]' : 'text-slate-400 hover:text-white'
       }`}
     >
       {label}
@@ -60,7 +138,7 @@ const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab, onAddC
       <button
         onClick={() => { impactHaptic(); onAddClick(); }}
         aria-label="授業を追加"
-        className="liquid-glass w-14 h-14 rounded-full flex items-center justify-center z-50 pointer-events-auto shrink-0"
+        className="liquid-glass liquid-glass-control liquid-add-button w-14 h-14 rounded-full flex items-center justify-center z-50 pointer-events-auto shrink-0 touch-manipulation"
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <line x1="12" y1="5" x2="12" y2="19"></line>
