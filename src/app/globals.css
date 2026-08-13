@@ -15,20 +15,16 @@ html, body {
   min-height: 100%;
 }
 
-/* 時間割タブでのみページスクロールを止める（App.tsx が付け外しする） */
 html.lock-page-scroll,
 html.lock-page-scroll body {
   overflow: hidden;
   height: 100%;
 }
 
-/* 成績・アカウントは縦スクロール。iOS でのゴムバンドを内側に閉じ込める */
 html:not(.lock-page-scroll) body {
   overscroll-behavior-y: contain;
 }
 
-/* html にも当てる。Web のラバーバンド領域や Android のオーバースクロールで
-   暗い地色が覗くのを防ぐ */
 html.theme-light, html.theme-light body, html.theme-light .bg-\[\#050811\] {
   background-color: #f1f5f9 !important;
 }
@@ -204,8 +200,7 @@ html.theme-light .color-picker-active {
   border: none !important;
 }
 
-/* --- ライトテーマ: 未対応だった暗色サーフェスの補完 --- */
-/* 罫線 */
+/* --- ライトテーマ --- */
 html.theme-light .border-white\/5,
 html.theme-light .border-white\/10,
 html.theme-light .border-gray-700,
@@ -217,7 +212,6 @@ html.theme-light .border-\[\#334155\]\/50 {
   border-color: #e2e8f0 !important;
 }
 
-/* カード・パネル面 */
 html.theme-light .bg-white\/10,
 html.theme-light .bg-gray-800\/50,
 html.theme-light .bg-gray-900\/50,
@@ -237,24 +231,12 @@ html.theme-light .bg-\[\#2A2A2A\] {
   color: #0f172a !important;
 }
 
-/* モーダルの背景スクリム。ライトでも暗めに落とすが black ほど濃くしない。
-   bg-black/30,/40,/70,/80 は前方のルールでガラス面として扱っているので触らない */
 html.theme-light .bg-black\/50,
 html.theme-light .bg-black\/60 {
   background-color: rgba(15, 23, 42, 0.38) !important;
 }
 
-/* ==========================================================================
-   Liquid Glass (iOS 26 標準デザイン準拠)
-   ボトムメニューバー / 左上・右上アイコンで使用
-   ========================================================================== */
-
-/* ダークモードの Liquid Glass は「白く光る板」ではなく「暗いスモークガラス」。
-   背景を明るくするのではなく暗く沈め、縁だけを細く光らせる。 */
-/* backdrop-filter だけを @supports に置く。
-   background-color をここに書くと、後続の .liquid-glass 規則と同じ詳細度のため
-   （@supports は詳細度を上げない）後勝ちで打ち消され、透明度が効かなくなる。
-   非対応環境向けの不透明フォールバックはファイル末尾の @supports not で指定。 */
+/* Liquid Glass */
 @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
   .liquid-glass {
     -webkit-backdrop-filter: blur(12px) saturate(165%) brightness(0.97);
@@ -265,13 +247,9 @@ html.theme-light .bg-black\/60 {
 .liquid-glass {
   position: relative;
   isolation: isolate;
-  /* ::before / ::after の基準にするため position を持たせるが、
-     Tailwind の absolute/fixed/sticky を潰さないよう明示的に復帰させる */
   border: none;
-  /* 背景をより透かし、背後のコンテンツが見える薄いガラス */
   background-color: rgba(255, 255, 255, 0.006);
   color: #fff;
-  /* 外側の落ち影 + 内側のレンズ縁（上=細いハイライト / 下=わずかな拾い上げ光） */
   box-shadow:
     0 10px 36px rgba(0, 0, 0, 0.14),
     0 2px 10px rgba(0, 0, 0, 0.08),
@@ -290,14 +268,12 @@ html.theme-light .bg-black\/60 {
 .liquid-glass.fixed { position: fixed; }
 .liquid-glass.sticky { position: sticky; }
 
-/* 縁の屈折（lensing）: 枠だけをマスクした明暗グラデーション */
 .liquid-glass::before {
   content: '';
   position: absolute;
   inset: 0;
   border-radius: inherit;
   padding: 1px;
-  /* 輪郭を線として見せず、薄いレンズ光だけを残す */
   background: linear-gradient(
     145deg,
     rgba(255, 255, 255, 0.16) 0%,
@@ -320,7 +296,6 @@ html.theme-light .bg-black\/60 {
   z-index: 1;
 }
 
-/* 鏡面反射（specular highlight）: 上面の光沢 */
 .liquid-glass::after {
   content: '';
   position: absolute;
@@ -339,7 +314,6 @@ html.theme-light .bg-black\/60 {
   transition: opacity 0.32s ease;
 }
 
-/* 押下時: わずかに沈み込み、ガラスが厚くなる */
 .liquid-glass:active {
   transform: scale(0.96);
   background-color: rgba(255, 255, 255, 0.02);
@@ -353,8 +327,6 @@ html.theme-light .bg-black\/60 {
   opacity: 1;
 }
 
-/* コンテンツを縁・光沢より前面へ。
-   絶対配置のカプセルは対象外にする（position を上書きすると配置が壊れるため） */
 .liquid-glass > *:not(.liquid-capsule):not(.liquid-capsule-track) {
   position: relative;
   z-index: 2;
@@ -409,10 +381,6 @@ html.theme-light .liquid-glass:active {
     inset 0 0 24px rgba(255, 255, 255, 0.6);
 }
 
-/* タブバーの選択カプセル。
-   iOS 26 の挙動に合わせ「移動」と「伸縮」を別レイヤーに分ける:
-   - track が減衰バネで平行移動する
-   - capsule が進行中だけ横に伸び、着地で戻る（液体的なモーフ）*/
 .liquid-capsule-track {
   transition:
     transform 0.44s cubic-bezier(0.33, 1.12, 0.35, 1),
@@ -420,9 +388,7 @@ html.theme-light .liquid-glass:active {
   will-change: transform;
 }
 
-/* 暗いバーの上に浮く「一段明るいガラス」。上端の細いハイライトで立体感を出す */
 .liquid-capsule {
-  /* カプセルはベースより濃くして、選択状態を明確に戻す */
   background: rgba(10, 132, 255, 0.13);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
   backdrop-filter: blur(16px) saturate(180%);
@@ -451,7 +417,6 @@ html.theme-light .liquid-capsule {
     0 2px 8px rgba(15, 23, 42, 0.1);
 }
 
-/* iOS版と同じLiquid Glassの操作レイヤー。サイズは元のWeb版と一致させる。 */
 .liquid-glass-control {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
@@ -470,21 +435,17 @@ html.theme-light .liquid-capsule {
   outline-offset: 2px;
 }
 
-/* UIKitのUIButton.Configuration.glass()に合わせた、押下時の短い沈み込み */
 .liquid-glass-control:active {
   transition-duration: 0.16s;
 }
 
-/* backdrop-filter 非対応環境のフォールバック */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .liquid-glass { background-color: rgba(20, 24, 38, 0.42); }
   html.theme-light .liquid-glass { background-color: rgba(255, 255, 255, 0.5); }
 }
 
-/* タブバーのサイズは固定。スクロールで畳む挙動は行わない */
 .liquid-tabbar-pill {
   width: 16rem;
-  /* カプセルの後ろのベースだけを透明化する。カプセル自体の濃さは維持する */
   background-color: transparent;
   box-shadow:
     0 8px 26px rgba(0, 0, 0, 0.06),
@@ -501,7 +462,6 @@ html.theme-light .liquid-capsule {
 }
 
 .liquid-tabbar-pill::before {
-  /* 枠を線ではなく、ぼやけたレンズの縁として見せる */
   padding: 1.35px;
   background: linear-gradient(
     145deg,
@@ -516,7 +476,6 @@ html.theme-light .liquid-capsule {
 }
 
 .liquid-tabbar-pill::after {
-  /* 上下の反射で、背後が端に向かってわずかに曲がる印象を作る */
   background:
     radial-gradient(ellipse 120% 150% at 50% 112%, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 58%),
     radial-gradient(ellipse 120% 150% at 50% -12%, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 58%);
@@ -551,9 +510,7 @@ html.theme-light .liquid-tabbar-pill::after {
     radial-gradient(ellipse 120% 150% at 50% -12%, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 58%);
 }
 
-/* --- アクセシビリティ設定への追従 ---
-   iOS 26.1 の「透明度を下げる」「コントラストを上げる」に合わせて
-   ガラスを不透明化し、可読性を優先する */
+/* --- アクセシビリティ設定への追従 --- */
 @media (prefers-reduced-transparency: reduce) {
   .liquid-glass {
     -webkit-backdrop-filter: none;

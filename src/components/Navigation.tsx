@@ -16,7 +16,6 @@ interface NavigationProps {
   onSearchClick: () => void;
   currentYear: number;
   currentSemester: string;
-  /** モーダル表示中など、バーを隠したいとき */
   hidden?: boolean;
 }
 
@@ -29,9 +28,9 @@ const Navigation: React.FC<NavigationProps> = ({
   currentSemester,
   hidden = false,
 }) => {
-  // 切替のたびに key を変えて、伸縮アニメーションを最初から再生させる
+  // key を変えて伸縮アニメーションを毎回最初から再生させる
   const [morphKey, setMorphKey] = React.useState(0);
-  // iOS は OS の Liquid Glass を使うため、バーはネイティブ側が描画する
+  // iOS はネイティブ側でバーを描画する（OS の Liquid Glass を使うため）
   const native = usesNativeTabBar();
 
   const latest = React.useRef({ setActiveTab, onAddClick, onSearchClick });
@@ -45,13 +44,12 @@ const Navigation: React.FC<NavigationProps> = ({
   React.useEffect(() => bindNativeGlassControls({
     onSearch: () => latest.current.onSearchClick(),
     onAccount: () => latest.current.setActiveTab('account'),
-    // 学期モーダルは時間割側が所有しているため、DOMイベントで橋渡しする。
+    // 学期モーダルの所有元（時間割タブ）へDOMイベントで橋渡しする
     onTerm: () => window.dispatchEvent(new Event('waritoNativeTerm')),
   }), []);
 
-  // ネイティブのバーは常に WebView より前面に出るので、モーダル表示中は隠す。
-  // 個別に列挙すると子コンポーネント内のモーダル（学期選択など）を取りこぼすため、
-  // 全モーダルが使っている `fixed inset-0` のオーバーレイを DOM で監視する。
+  // ネイティブバーは WebView より常に前面に出るため、モーダル表示中は隠す必要がある。
+  // 個々のモーダルを列挙する代わりに、共通の `fixed inset-0` オーバーレイを監視する。
   const [overlayOpen, setOverlayOpen] = React.useState(false);
   React.useEffect(() => {
     if (!native) return;
@@ -75,7 +73,6 @@ const Navigation: React.FC<NavigationProps> = ({
     });
   }, [activeTab, currentYear, currentSemester, hidden, overlayOpen]);
 
-  // ログアウト等でアンマウントされたらネイティブバーも隠す
   React.useEffect(() => () => {
     syncNativeTabBar({ activeTab: 'timetable', visible: false });
     syncNativeGlassControls({
@@ -94,8 +91,7 @@ const Navigation: React.FC<NavigationProps> = ({
     setActiveTab(tab);
   };
 
-  // ネイティブバー使用時は Web 側を描画しない（二重表示を防ぐ）
-  if (native) return null;
+  if (native) return null; // 二重表示を防ぐため Web 側は描画しない
 
   const tabLabel = (tab: 'timetable' | 'grades', label: string) => (
     <button
@@ -112,9 +108,7 @@ const Navigation: React.FC<NavigationProps> = ({
   return (
     <div className="liquid-tabbar fixed left-1/2 -translate-x-1/2 flex items-center justify-center z-10 pointer-events-none gap-3 w-full px-6 bottom-[calc(1.25rem+env(safe-area-inset-bottom))]">
       <div className="liquid-glass liquid-tabbar-pill rounded-full h-14 flex items-center relative pointer-events-auto">
-        {/* 外側がバネで移動し、内側が進行方向へ伸び縮みする（iOS 26 のリキッドグラス挙動） */}
-        {/* 幅 calc(50%-12px) + 左右 6px の余白で、両タブの中心に正確に載る:
-            6 | 116 | 12 | 116 | 6 = 256px（バー幅 16rem）*/}
+        {/* w-[calc(50%-12px)] + 6px余白で両タブ中心に正確に載る: 6|116|12|116|6 = 256px(16rem) */}
         <div
           className="liquid-capsule-track absolute top-1.5 bottom-1.5 w-[calc(50%-12px)] z-0"
           style={{

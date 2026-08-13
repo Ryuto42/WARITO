@@ -2,12 +2,9 @@ import UIKit
 import WebKit
 import Capacitor
 
-/// WKWebView の上にネイティブのタブバーを重ね、iOS 26 の Liquid Glass
-/// （UIGlassEffect）を実際のマテリアルとして使う。
-///
-/// WebView 内の CSS backdrop-filter は WebKit 独自の近似で、OS のガラス素材
-/// （実時間の背景サンプリング・屈折・鏡面ハイライト）にはならないため、
-/// ナビゲーションに関わるガラスコントロールをネイティブビューとして持ち上げている。
+/// WKWebView の上にネイティブのタブバーを重ね、iOS 26 の Liquid Glass を使う。
+/// CSS の backdrop-filter は近似でしかなく OS のガラス素材にならないため、
+/// ナビゲーション用ガラスコントロールはネイティブビューとして持ち上げている。
 ///
 /// - ネイティブ → Web: evaluateJavaScript で window.__waritoNativeTab を呼ぶ
 /// - Web → ネイティブ: webkit.messageHandlers.waritoTabBar でタブ状態/表示可否を受け取る
@@ -58,9 +55,8 @@ class GlassTabBarController: CAPBridgeViewController, WKScriptMessageHandler {
 
     private func setupBar() {
         barContainer.translatesAutoresizingMaskIntoConstraints = false
-        // バー自体は素通し。ガラス部分だけがタップを受ける
         barContainer.isUserInteractionEnabled = true
-        barContainer.alpha = 0 // Web 側から表示指示が来るまで隠す
+        barContainer.alpha = 0 // Web 側の表示指示を待つ
         view.addSubview(barContainer)
 
         NSLayoutConstraint.activate([
@@ -101,7 +97,6 @@ class GlassTabBarController: CAPBridgeViewController, WKScriptMessageHandler {
             }
             effect = glass
         } else {
-            // iOS 25 以前は従来のブラーで代替する
             effect = UIBlurEffect(style: .systemThinMaterial)
         }
         let v = UIVisualEffectView(effect: effect)
@@ -115,9 +110,7 @@ class GlassTabBarController: CAPBridgeViewController, WKScriptMessageHandler {
     private func setupPillContents() {
         let content = pillEffectView.contentView
 
-        // 選択中タブを示すカプセル
-        // 選択中の項目も通常の半透明UIViewではなく、iOS標準のclear glassにする。
-        // これで背景の反射・ぼかし・タブ移動時のモーフィングがOS側で描画される。
+        // clear glass にすることで反射・ぼかし・移動時のモーフィングをOS側に描画させる
         selectionIndicator = makeGlassView(corner: (barHeight - inset * 2) / 2, clear: true)
         selectionIndicator.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(selectionIndicator)
@@ -164,7 +157,6 @@ class GlassTabBarController: CAPBridgeViewController, WKScriptMessageHandler {
         ])
     }
 
-    /// WebView内の近似CSSではなく、UIKitのLiquid Glassを使う上部・学期コントロール。
     private func setupGlassControls() {
         searchButton = makeGlassButton(
             imageName: "magnifyingglass",
@@ -314,13 +306,11 @@ class GlassTabBarController: CAPBridgeViewController, WKScriptMessageHandler {
             self.selectionIndicator.alpha = (index == nil) ? 0 : 1
         }
         if animated {
-            // iOS 26 のタブ切替に近い、控えめなバネ
             UIView.animate(withDuration: 0.44, delay: 0,
                            usingSpringWithDamping: 0.78, initialSpringVelocity: 0.4,
                            options: [.allowUserInteraction, .beginFromCurrentState], animations: apply)
 
-            // Web/Android側のCSSカプセルと同じ、移動中だけの液体的な伸縮。
-            // 着地時には必ず等倍へ戻し、選択状態の静止画はiOS標準のカプセルにする。
+            // 移動中だけ伸縮させ、着地時は必ず等倍(identity)に戻す
             selectionIndicator.transform = .identity
             UIView.animateKeyframes(withDuration: 0.44, delay: 0,
                                     options: [.allowUserInteraction, .beginFromCurrentState], animations: {

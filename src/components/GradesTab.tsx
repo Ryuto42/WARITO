@@ -146,7 +146,7 @@ const ExpandedGradeStat = ({ grade }: { grade: GradeInfo }) => {
         const allStats = await fetchClassGradeStats();
         const gradeYear = grade.year;
 
-        // 同年度を優先し、該当年度にデータが無い場合は他年度の実績にフォールバックする
+        // 同年度優先、無ければ他年度にフォールバック
         const sameYear = gradeYear
           ? selectGradeStatMatches(grade, allStats.filter((s) => s.year === gradeYear))
           : [];
@@ -378,7 +378,6 @@ const GradesTab: React.FC<GradesTabProps> = ({ grades }) => {
     return result;
   }, [activeGrades, filterYear, filterSemester, sortField, sortOrder]);
 
-  // フィルタ状態に連動するGPAと修得単位数
   const totalCreditsFiltered = useMemo(() => {
     return sortedAndFilteredGrades.filter(g => g.pass_status === '合').reduce((acc, curr) => acc + (curr.credits || 0), 0);
   }, [sortedAndFilteredGrades]);

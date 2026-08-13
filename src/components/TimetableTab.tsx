@@ -198,7 +198,7 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
         </div>
       </div>
 
-      {/* iOS/Android/Web で同じ計算にする。env() は非対応環境では 0 に評価される */}
+      {/* env() は非対応環境では0扱いになるため、全プラットフォームで同じ式を使える */}
       <div className={`fixed left-1/2 -translate-x-1/2 z-[50] bottom-[calc(6rem+env(safe-area-inset-bottom))] ${nativeGlassControls ? 'invisible pointer-events-none' : ''}`}>
         <button
           onClick={handleOpenTermModal}
