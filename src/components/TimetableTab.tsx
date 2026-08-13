@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { dayMap, formatDays, isArchivedClass } from '../types';
 import type { ClassInfo, TimetableTermSetting } from '../types';
+import { usesNativeGlassControls } from '../utils/native';
 
 interface TimetableTabProps {
   currentYear: number;
@@ -21,6 +22,7 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
   onTermChange,
   onClassClick
 }) => {
+  const nativeGlassControls = usesNativeGlassControls();
   const displayDays = setting.showSaturday ? formatDays : formatDays.slice(0, 5);
   const periods = Array.from({ length: setting.periodCount }, (_, i) => i + 1);
   const todayIndex = new Date().getDay();
@@ -62,6 +64,12 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
     setModalSemester(getSelectedSemesterValue(currentSemester));
     setIsTermModalOpen(true);
   };
+
+  useEffect(() => {
+    const handleNativeTerm = () => handleOpenTermModal();
+    window.addEventListener('waritoNativeTerm', handleNativeTerm);
+    return () => window.removeEventListener('waritoNativeTerm', handleNativeTerm);
+  }, [currentYear, currentSemester]);
 
   const handleCloseTermModal = () => {
     setIsClosingTerm(true);
@@ -191,13 +199,12 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
       </div>
 
       {/* iOS/Android/Web で同じ計算にする。env() は非対応環境では 0 に評価される */}
-      <div className="fixed left-1/2 -translate-x-1/2 z-[50] bottom-[calc(6rem+env(safe-area-inset-bottom))]">
+      <div className={`fixed left-1/2 -translate-x-1/2 z-[50] bottom-[calc(6rem+env(safe-area-inset-bottom))] ${nativeGlassControls ? 'invisible pointer-events-none' : ''}`}>
         <button
           onClick={handleOpenTermModal}
-          className="liquid-glass rounded-full px-4 py-2 sm:py-2.5 text-[9px] sm:text-[11px] font-bold tracking-widest flex items-center gap-2"
+          className="liquid-glass liquid-glass-control liquid-term-button rounded-full px-4 py-2 sm:py-2.5 text-xs font-semibold tracking-normal flex items-center gap-2 touch-manipulation"
         >
           <span>{currentYear}年度</span>
-          <span className="text-sky-400 mx-1">|</span>
           <span>{currentSemester}</span>
           <svg className="w-3.5 h-3.5 text-gray-400 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
