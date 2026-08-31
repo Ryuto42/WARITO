@@ -548,3 +548,6 @@ html.theme-light .liquid-tabbar-pill::after {
   .liquid-glass:active { transform: none; }
   .liquid-capsule.is-morphing { animation: none; }
 }
+
+.scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }

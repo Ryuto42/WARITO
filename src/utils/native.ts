@@ -16,8 +16,7 @@ export const isIOS = () => {
   }
 };
 
-// 各プラットフォームで出せる最小の振動。iOSはselectionChanged()が最軽量だが、
-// Androidはプラグインの最小プリセットでも長く強い（50-100ms）ため、Web Vibration APIの8msを使う。
+// Androidはプラグインの最小プリセットでも50-100msと強いため Web Vibration API を使う
 const MIN_VIBRATE_MS = 8;
 
 const tryWebVibrate = (ms: number) => {
@@ -39,7 +38,6 @@ export const selectionHaptic = () => {
 
   if (tryWebVibrate(MIN_VIBRATE_MS)) return;
 
-  // Vibration API が無い Android WebView 向けのフォールバック
   if (isNative()) {
     import('@capacitor/haptics')
       .then(({ Haptics, ImpactStyle }) => Haptics.impact({ style: ImpactStyle.Light }))
@@ -65,11 +63,9 @@ export const notifyHaptic = (type: 'success' | 'warning' | 'error' = 'success') 
     .catch(() => {});
 };
 
-// iOSはCSSがOSのLiquid Glass素材にならないため、タブバーをネイティブビューで描画する（GlassTabBarController.swift）
+// CSSはOSのLiquid Glass素材にならないので iOS はネイティブ描画（GlassTabBarController.swift）
 export const usesNativeTabBar = () => isNative() && isIOS();
-
-// タブバーと同じネイティブレイヤーに置くコントロール群
-export const usesNativeGlassControls = () => usesNativeTabBar();
+export const usesNativeGlassControls = usesNativeTabBar;
 
 type NativeTabBarState = { activeTab: string; visible: boolean };
 
@@ -101,6 +97,8 @@ type NativeGlassControlsState = {
   visible: boolean;
   year: number;
   semester: string;
+  presetCount: number;
+  presetIndex: number;
 };
 
 export const syncNativeGlassControls = (state: NativeGlassControlsState) => {
@@ -114,20 +112,22 @@ export const bindNativeGlassControls = (handlers: {
   onSearch: () => void;
   onAccount: () => void;
   onTerm: () => void;
+  onPresetSelect?: (index: number) => void;
 }) => {
   if (!usesNativeGlassControls()) return () => {};
   const w = window as any;
   w.__waritoNativeGlassSearch = handlers.onSearch;
   w.__waritoNativeGlassAccount = handlers.onAccount;
   w.__waritoNativeGlassTerm = handlers.onTerm;
+  w.__waritoNativeGlassPreset = (index: number) => handlers.onPresetSelect?.(index);
   return () => {
     delete w.__waritoNativeGlassSearch;
     delete w.__waritoNativeGlassAccount;
     delete w.__waritoNativeGlassTerm;
+    delete w.__waritoNativeGlassPreset;
   };
 };
 
-// ネイティブ起動時の初期化: ステータスバー・スプラッシュ・キーボード
 export const initNativeShell = async () => {
   if (!isNative()) return;
 
@@ -141,8 +141,7 @@ export const initNativeShell = async () => {
   try {
     const { Keyboard, KeyboardResize } = await import('@capacitor/keyboard');
     await Keyboard.setResizeMode({ mode: KeyboardResize.Native });
-    // Keyboard.setScroll({isDisabled:true}) はWKWebViewのscrollView自体を無効化し
-    // 成績・アカウント画面がスクロール不能になるため使わない
+    // setScroll({isDisabled:true}) は WKWebView の scrollView 自体を殺すので使わない
   } catch {}
 
   try {

@@ -1,10 +1,10 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { supabase, readPersistedSession } from './supabaseClient';
 import { ARCHIVE_DAY, PRESET_COLORS, defaultTimetableSetting, isArchivedClass } from './types';
-import type { ClassInfo, TimetableTermSetting, TimetableSettingsRecord, GradeInfo } from './types';
+import type { ClassInfo, TimetableTermSetting, TimetableSettingsRecord, GradeInfo, TimetablePreset } from './types';
 import TimetableTab from './components/TimetableTab';
 import AccountTab from './components/AccountTab';
 import Navigation from './components/Navigation';
@@ -23,6 +23,14 @@ import {
 } from './utils/localCache';
 import { initNativeShell, isNative, notifyHaptic, usesNativeGlassControls } from './utils/native';
 import { applyTheme, resolveTheme, watchSystemTheme } from './utils/theme';
+import {
+  presetsForTerm,
+  fetchPresets,
+  createPreset,
+  copyClassesToPreset,
+  deletePreset,
+  updatePresetSettings,
+} from './utils/presets';
 
 const MAX_SHARE_PARAM_LENGTH = 12_000;
 const MAX_SHARE_CLASSES = 200;
@@ -74,8 +82,7 @@ const normalizeImportedClass = (raw: any): Partial<ClassInfo> => {
 const App = () => {
   const nativeGlassControls = usesNativeGlassControls();
 
-  // 保存済みセッションから同期で復帰する。オフラインでも即座に時間割を出すため、
-  // getSession()（期限切れならネットワーク更新を試みる）の完了を待たない。
+  // getSession() の完了を待つとオフラインで起動できない
   const [session, setSession] = useState<any>(() => readPersistedSession());
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -85,14 +92,12 @@ const App = () => {
   const [authError, setAuthError] = useState('');
   const [authSuccess, setAuthSuccess] = useState('');
 
-  // 端末内キャッシュから同期的に復元し、通信が遅くても即座に時間割を描画する
   const [classes, setClasses] = useState<ClassInfo[]>(
     () => readCacheSync<ClassInfo[]>(CACHE_KEYS.classes) ?? []
   );
   const [grades, setGrades] = useState<GradeInfo[]>(
     () => readCacheSync<GradeInfo[]>(CACHE_KEYS.grades) ?? []
   );
-  // サーバー側の内容がキャッシュと異なっていた場合、トップ画面から起動し直すためのキー
   const [appEpoch, setAppEpoch] = useState(0);
   const [activeTab, setActiveTab] = useState<'timetable' | 'grades' | 'account'>('timetable');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -114,7 +119,17 @@ const App = () => {
   );
 
   const [timetableSettings, setTimetableSettings] = useState<TimetableSettingsRecord>({});
-  
+
+  const [presets, setPresets] = useState<TimetablePreset[]>(
+    () => readCacheSync<TimetablePreset[]>(CACHE_KEYS.presets) ?? []
+  );
+  const [activePresetIds, setActivePresetIds] = useState<Record<string, string>>(
+    () => readCacheSync<Record<string, string>>(CACHE_KEYS.activePresets) ?? {}
+  );
+  const [presetsLoaded, setPresetsLoaded] = useState(false);
+  const [presetPageIndex, setPresetPageIndex] = useState(0);
+  const creatingPresetFor = useRef<string | null>(null);
+
   const [globalAlert, setGlobalAlert] = useState({ isOpen: false, isClosing: false, msg: '' });
   const [showWelcome, setShowWelcome] = useState(false);
   const [isClosingWelcome, setIsClosingWelcome] = useState(false);
@@ -127,11 +142,6 @@ const App = () => {
     setTimeout(() => setGlobalAlert({ isOpen: false, isClosing: false, msg: '' }), 200);
   };
 
-  /**
-   * 保存済みの内容とサーバーの内容に差分があったときに呼ぶ。
-   * 開いているモーダルをすべて閉じ、時間割タブ（トップ画面）に戻して
-   * 画面ツリーを作り直す。
-   */
   const restartFromTop = () => {
     setSelectedClass(null);
     setIsAddModalOpen(false);
@@ -191,8 +201,7 @@ const App = () => {
     window.scrollTo(0, 0);
   }, [activeTab]);
 
-  // 時間割タブだけページスクロールを止める。
-  // 直前値の退避・復元は順序次第で 'hidden' が残るため、クラスの付け外しで冪等にする。
+  // 直前値の退避・復元だと順序次第で 'hidden' が残るため、クラスの付け外しで冪等にする
   useEffect(() => {
     const root = document.documentElement;
     root.classList.toggle('lock-page-scroll', activeTab === 'timetable');
@@ -204,8 +213,6 @@ const App = () => {
     writeCache(CACHE_KEYS.semester, currentSemester);
   }, [currentYear, currentSemester]);
 
-  // ネイティブ（iOS）シェルの初期化と、端末内ストレージからのキャッシュ復元
-  // 端末のダーク/ライト設定に追従する（テーマ設定が「端末に合わせる」のとき）
   useEffect(() => {
     applyTheme(resolveTheme());
     return watchSystemTheme(() => {});
@@ -223,7 +230,6 @@ const App = () => {
     });
   }, []);
 
-  // バックグラウンド復帰時に再取得し、差分があればトップから起動し直す
   useEffect(() => {
     if (!isNative()) return;
     let listener: any;
@@ -233,14 +239,14 @@ const App = () => {
         if (!session) return;
         fetchClasses(session.user.id);
         fetchGrades(session.user.id);
+        loadPresets(session.user.id);
       });
     }).then((l) => { listener = l; });
     return () => { if (listener) listener.remove(); };
   }, []);
 
   useEffect(() => {
-    // オフラインだと getSession() が長時間解決しないことがあるため、
-    // 一定時間で打ち切ってキャッシュ内容のまま描画を続行する
+    // オフラインでは getSession() が返らないことがあるので打ち切る
     let settled = false;
     const finishLoading = () => {
       if (settled) return;
@@ -256,9 +262,9 @@ const App = () => {
           setSession(session);
           fetchClasses(session.user.id);
           fetchGrades(session.user.id);
+          loadPresets(session.user.id);
         } else if (!readPersistedSession()) {
-          // 保存トークン自体が無い＝本当に未ログイン。
-          // 通信失敗で null が返っただけの場合は、復元済みセッションを維持する
+          // 通信失敗の null でログアウト扱いにしない
           setSession(null);
         }
       })
@@ -273,14 +279,14 @@ const App = () => {
         setSession(session);
         fetchClasses(session.user.id);
         fetchGrades(session.user.id);
+        loadPresets(session.user.id);
         if (!localStorage.getItem('waritoWelcomeDone')) {
           setShowWelcome(true);
           localStorage.setItem('waritoWelcomeDone', 'true');
         }
         return;
       }
-      // 明示的なサインアウト以外（オフラインでのトークン更新失敗など）では
-      // ログイン状態を落とさない
+      // トークン更新失敗ではログアウトさせない
       if (event === 'SIGNED_OUT' || !readPersistedSession()) setSession(null);
     });
 
@@ -336,20 +342,40 @@ const App = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const updateTimetableSetting = (setting: TimetableTermSetting) => {
-    const key = `${currentYear}-${currentSemester}`;
-    const newSettings = { ...timetableSettings, [key]: setting };
-    setTimetableSettings(newSettings);
-    writeCache(CACHE_KEYS.settings, newSettings);
+  const termKey = `${currentYear}-${currentSemester}`;
+  const termPresets = useMemo(
+    () => presetsForTerm(presets, currentYear, currentSemester),
+    [presets, currentYear, currentSemester]
+  );
+  const activePresetId = activePresetIds[termKey] && termPresets.some(p => p.id === activePresetIds[termKey])
+    ? activePresetIds[termKey]
+    : termPresets[0]?.id || null;
+  const activePreset = termPresets.find(p => p.id === activePresetId) || null;
+
+  const setActivePresetId = (presetId: string) => {
+    const next = { ...activePresetIds, [termKey]: presetId };
+    setActivePresetIds(next);
+    writeCache(CACHE_KEYS.activePresets, next);
   };
 
-  const currentSetting = timetableSettings[`${currentYear}-${currentSemester}`] || defaultTimetableSetting;
+  // 未設定のプリセットは旧localStorageの学期単位の値に落とす
+  const settingForPreset = (preset: TimetablePreset | null) =>
+    preset?.settings || timetableSettings[termKey] || defaultTimetableSetting;
 
-  /**
-   * サーバーの内容がキャッシュと違っていた場合はキャッシュを更新し、
-   * トップ画面（時間割タブ）から画面を作り直す。
-   * ユーザー自身の編集による再取得では再起動しないよう silent を渡す。
-   */
+  const currentSetting = settingForPreset(activePreset);
+
+  const updateTimetableSetting = (setting: TimetableTermSetting) => {
+    const newSettings = { ...timetableSettings, [termKey]: setting };
+    setTimetableSettings(newSettings);
+    writeCache(CACHE_KEYS.settings, newSettings);
+
+    if (activePresetId) {
+      setPresets(prev => prev.map(p => (p.id === activePresetId ? { ...p, settings: setting } : p)));
+      updatePresetSettings(activePresetId, setting);
+    }
+  };
+
+  // 自分の編集による再取得では再起動しないよう silent を渡す
   const applyRemoteRows = <T,>(
     key: typeof CACHE_KEYS.classes | typeof CACHE_KEYS.grades,
     rows: T[],
@@ -362,7 +388,14 @@ const App = () => {
     if (changed && hadCache && !silent) restartFromTop();
   };
 
-  // オフラインでは取得に失敗するが、キャッシュ表示を維持したいので握りつぶす
+  const loadPresets = async (userId: string) => {
+    const rows = await fetchPresets(userId);
+    setPresets(rows);
+    writeCache(CACHE_KEYS.presets, rows);
+    setPresetsLoaded(true);
+    return rows;
+  };
+
   const fetchClasses = async (userId: string, silent = false) => {
     try {
       const { data, error } = await supabase.from('classes').select('*').eq('user_id', userId);
@@ -470,18 +503,89 @@ const App = () => {
     setAuthSuccess('');
   };
 
-  const timetableData: { [day: string]: { [period: number]: ClassInfo[] } } = {};
-  classes.filter(c => c.academic_year === currentYear && c.semester === currentSemester && !isArchivedClass(c)).forEach(c => {
-    const schedules = c.class_schedules && c.class_schedules.length > 0 
-      ? c.class_schedules 
-      : [{ day: c.day, period: c.period, room: c.room }];
-      
-    schedules.forEach(sch => {
-      if (!timetableData[sch.day]) timetableData[sch.day] = {};
-      if (!timetableData[sch.day][sch.period]) timetableData[sch.day][sch.period] = [];
-      timetableData[sch.day][sch.period].push({ ...c, day: sch.day, period: sch.period, room: sch.room || c.room });
-    });
-  });
+  useEffect(() => {
+    if (!session || !presetsLoaded || termPresets.length > 0) return;
+    if (creatingPresetFor.current === termKey) return;
+    creatingPresetFor.current = termKey;
+    (async () => {
+      const created = await createPreset(session.user.id, currentYear, currentSemester, '時間割1', 0, null);
+      if (created) setPresets(prev => [...prev, created]);
+      creatingPresetFor.current = null;
+    })();
+  }, [session, presetsLoaded, termKey, termPresets.length]);
+
+  const handleCreatePreset = async (mode: 'empty' | 'duplicate', sourcePresetId?: string) => {
+    if (!session) return;
+    setIsProcessing(true);
+    const name = `時間割${termPresets.length + 1}`;
+    const sortOrder = termPresets.length;
+    const source = termPresets.find(p => p.id === (sourcePresetId || activePresetId)) || null;
+
+    const created = await createPreset(
+      session.user.id, currentYear, currentSemester, name, sortOrder,
+      mode === 'duplicate' ? (source?.settings ?? currentSetting) : null
+    );
+
+    if (!created) {
+      showAppAlert('時間割の作成に失敗しました');
+      stopProcessing();
+      return;
+    }
+
+    if (mode === 'duplicate' && source) {
+      const sourceClasses = classes.filter(c => c.preset_id === source.id && !isArchivedClass(c));
+      const ok = await copyClassesToPreset(session.user.id, sourceClasses, created.id);
+      if (!ok) showAppAlert('授業の複製に失敗しました');
+    }
+
+    setPresets(prev => [...prev, created]);
+    setActivePresetId(created.id);
+    await fetchClasses(session.user.id, true);
+    await loadPresets(session.user.id);
+    stopProcessing();
+  };
+
+  const handleDeletePreset = async (presetId: string) => {
+    if (!session || termPresets.length <= 1) return;
+    setIsProcessing(true);
+    const ok = await deletePreset(presetId);
+    if (ok) {
+      setPresets(prev => prev.filter(p => p.id !== presetId));
+      await fetchClasses(session.user.id, true);
+    } else {
+      showAppAlert('削除に失敗しました');
+    }
+    stopProcessing();
+  };
+
+  const buildTimetableData = (presetId: string | null) => {
+    const data: { [day: string]: { [period: number]: ClassInfo[] } } = {};
+    classes
+      .filter(c => c.preset_id === presetId && !isArchivedClass(c))
+      .forEach(c => {
+        const schedules = c.class_schedules && c.class_schedules.length > 0
+          ? c.class_schedules
+          : [{ day: c.day, period: c.period, room: c.room }];
+
+        schedules.forEach(sch => {
+          if (!data[sch.day]) data[sch.day] = {};
+          if (!data[sch.day][sch.period]) data[sch.day][sch.period] = [];
+          data[sch.day][sch.period].push({ ...c, day: sch.day, period: sch.period, room: sch.room || c.room });
+        });
+      });
+    return data;
+  };
+
+  const timetableData = useMemo(
+    () => buildTimetableData(activePresetId),
+    [classes, activePresetId]
+  );
+
+  const timetableDataByPreset = useMemo(() => {
+    const map: Record<string, { [day: string]: { [period: number]: ClassInfo[] } }> = {};
+    termPresets.forEach((p) => { map[p.id] = buildTimetableData(p.id); });
+    return map;
+  }, [classes, termPresets]);
 
   const handleSaveClass = async (payload: Partial<ClassInfo>, options?: { archive?: boolean }) => {
     setIsProcessing(true);
@@ -500,20 +604,26 @@ const App = () => {
       finalPayload.day = ARCHIVE_DAY;
       finalPayload.period = 0;
       finalPayload.room = firstSchedule?.room || finalPayload.room || '';
+      finalPayload.preset_id = null;
     } else if (finalPayload.day === ARCHIVE_DAY) {
       const firstSchedule = finalPayload.class_schedules?.[0];
       finalPayload.day = firstSchedule?.day || 'Mon';
       finalPayload.period = firstSchedule?.period || 1;
       finalPayload.room = firstSchedule?.room || finalPayload.room || '';
+      finalPayload.preset_id = activePresetId;
     }
 
     if (!finalPayload.id && finalPayload.name) {
-      const { data: existing } = await supabase.from('classes')
+      let existingQuery = supabase.from('classes')
         .select('id, day')
         .eq('user_id', session.user.id)
         .eq('academic_year', currentYear)
         .eq('semester', currentSemester)
         .eq('name', finalPayload.name);
+      existingQuery = shouldArchive
+        ? existingQuery.is('preset_id', null)
+        : existingQuery.eq('preset_id', activePresetId as string);
+      const { data: existing } = await existingQuery;
 
       const matchedExisting = existing?.find(item => shouldArchive ? item.day === ARCHIVE_DAY : item.day !== ARCHIVE_DAY);
 
@@ -540,6 +650,7 @@ const App = () => {
         user_id: session.user.id,
         semester: currentSemester,
         academic_year: currentYear,
+        preset_id: shouldArchive ? null : activePresetId,
         color: PRESET_COLORS[0].id,
         room: '',
         day: 'Mon',
@@ -942,6 +1053,15 @@ const App = () => {
             setting={currentSetting}
             onTermChange={(year, term) => { setCurrentYear(year); setCurrentSemester(term); }}
             onClassClick={setSelectedClass}
+            presets={termPresets}
+            activePresetId={activePresetId}
+            onPresetChange={setActivePresetId}
+            onCreatePreset={handleCreatePreset}
+            onDeletePreset={handleDeletePreset}
+            timetableDataByPreset={timetableDataByPreset}
+            settingForPreset={settingForPreset}
+            pageIndex={Math.min(presetPageIndex, termPresets.length)}
+            onPageChange={setPresetPageIndex}
           />
         )}
 
@@ -1010,8 +1130,10 @@ const App = () => {
           currentYear={currentYear}
           currentSemester={currentSemester}
           onSearchClick={() => setIsSearchModalOpen(true)}
-          // ネイティブのタブバーは常に WebView より前面に出るため、
-          // モーダル表示中は隠す（Web 版では z-index で解決するので影響なし）
+          // ネイティブバーは WebView より前面に出るのでモーダル中は隠す
+          presetCount={termPresets.length}
+          presetIndex={Math.min(presetPageIndex, termPresets.length)}
+          onPresetSelect={(i) => window.dispatchEvent(new CustomEvent('waritoNativePresetPage', { detail: i }))}
           hidden={
             isAddModalOpen || isGradeAddModalOpen || isSearchModalOpen || isProcessing ||
             selectedClass !== null || globalAlert.isOpen || showWelcome || shareImportData !== null

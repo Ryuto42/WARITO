@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { dayMap, formatDays, isArchivedClass } from '../types';
-import type { ClassInfo, TimetableTermSetting } from '../types';
+import type { ClassInfo, TimetableTermSetting, TimetablePreset } from '../types';
 import { usesNativeGlassControls } from '../utils/native';
 
 interface TimetableTabProps {
@@ -11,7 +11,116 @@ interface TimetableTabProps {
   setting: TimetableTermSetting;
   onTermChange: (year: number, semester: string) => void;
   onClassClick: (cls: ClassInfo) => void;
+  presets: TimetablePreset[];
+  activePresetId: string | null;
+  onPresetChange: (presetId: string) => void;
+  onCreatePreset: (mode: 'empty' | 'duplicate', sourcePresetId?: string) => void;
+  onDeletePreset: (presetId: string) => void;
+  timetableDataByPreset: Record<string, { [day: string]: { [period: number]: ClassInfo[] } }>;
+  settingForPreset: (preset: TimetablePreset | null) => TimetableTermSetting;
+  pageIndex: number;
+  onPageChange: (index: number) => void;
 }
+
+interface TimetableGridProps {
+  setting: TimetableTermSetting;
+  timetableData: { [day: string]: { [period: number]: ClassInfo[] } };
+  currentDayStr: string;
+  onClassClick: (cls: ClassInfo) => void;
+  onEmptySlotClick: (day: string, period: number) => void;
+}
+
+const TimetableGrid: React.FC<TimetableGridProps> = React.memo(({
+  setting,
+  timetableData,
+  currentDayStr,
+  onClassClick,
+  onEmptySlotClick,
+}) => {
+  const displayDays = setting.showSaturday ? formatDays : formatDays.slice(0, 5);
+  const periods = Array.from({ length: setting.periodCount }, (_, i) => i + 1);
+  const minHeightClass =
+    setting.periodCount >= 7 ? 'min-h-[70px] sm:min-h-[65px]'
+    : setting.periodCount === 6 ? 'min-h-[85px] sm:min-h-[80px]'
+    : 'min-h-[105px] sm:min-h-[100px]';
+
+  return (
+    <>
+        <div className="px-0.5 sm:px-1 mt-3 sm:mt-4">
+          <div className="flex gap-0.5 sm:gap-1.5 mb-1 sm:mb-1.5">
+            <div className="w-8 sm:w-14 flex-none invisible"></div>
+            {displayDays.map((day) => (
+              <div 
+                key={day} 
+                className={`flex-1 rounded-xl text-center py-1.5 sm:py-2.5 text-[9px] sm:text-[11px] font-bold tracking-wider ${day === currentDayStr ? 'bg-sky-400 text-[#0f172a]' : 'bg-[#1e293b] text-slate-300'}`}
+              >
+                {day}
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-col gap-0.5 sm:gap-1.5">
+            {periods.map(period => (
+              <div key={`period-${period}`} className="flex gap-0.5 sm:gap-1.5">
+                <div className={`w-8 sm:w-14 flex-none rounded-xl flex flex-col items-center justify-center p-0.5 sm:p-1.5 h-full ${minHeightClass}`}>
+                  {setting.periodTimes[period]?.start && (
+                    <span className="text-[8px] sm:text-[10px] text-slate-200 font-bold mb-0.5 tracking-tighter">{setting.periodTimes[period].start}</span>
+                  )}
+                  <span className="text-sky-400 text-xs sm:text-base font-black my-auto">{period}</span>
+                  {setting.periodTimes[period]?.end && (
+                    <span className="text-[8px] sm:text-[10px] text-slate-200 font-bold mt-0.5 tracking-tighter">{setting.periodTimes[period].end}</span>
+                  )}
+                </div>
+
+                {displayDays.map(day => {
+                  const dayClasses = timetableData[day]?.[period] || [];
+                  return (
+                    <div 
+                      key={`${day}-${period}`} 
+                      className={`flex-1 relative bg-[#06090D] rounded-xl ${minHeightClass} transition-colors hover:bg-gray-900/50 cursor-pointer overflow-hidden p-0 shadow-inner opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]`}
+                      style={{ animationDelay: `${(period - 1) * 50 + displayDays.indexOf(day) * 30}ms` }}
+                      onClick={() => {
+                        if (dayClasses.length === 0) {
+                          onEmptySlotClick(day, period);
+                        }
+                      }}
+                    >
+                      <div className="absolute inset-0 flex flex-col sm:flex-row h-full">
+                        {dayClasses.map((cls) => (
+                          <div 
+                            key={cls.id} 
+                            onClick={(e) => { e.stopPropagation(); onClassClick(cls); }} 
+                            className={`flex-1 h-full relative p-1 sm:p-2 transition-all duration-200 shadow-md ${cls.color} z-10 flex flex-col justify-center items-center text-center opacity-0 animate-[slideUp_0.4s_cubic-bezier(0.16,1,0.3,1)_forwards] class-card`}
+                            style={{ 
+                              animationDelay: `${(period - 1) * 50 + displayDays.indexOf(day) * 30 + 150}ms`
+                            }}
+                          >
+                            <div className="flex-1 w-full flex items-center justify-center px-1">
+                              <div className={`font-bold leading-tight drop-shadow-md ${dayClasses.length > 1 ? 'text-[8px] sm:text-[10px]' : 'text-[10px] sm:text-[13px]'}`} style={{ color: '#ffffff' }}>
+                                {cls.name}
+                              </div>
+                            </div>
+                            {cls.room && (
+                              <div className={`absolute bottom-1 left-1 right-1 flex justify-center pointer-events-none ${dayClasses.length > 1 ? 'hidden sm:flex' : 'flex'}`}>
+                                <div className={`${([cls.room, cls.class_format, cls.schedule].some(t => t && (t.includes('オンデマンド') || t.includes('オンデマ') || t.includes('ZOOM')))) ? 'bg-emerald-500/25 border-emerald-400/30' : 'bg-black/40 border-transparent'} px-1.5 sm:px-2 py-0.5 rounded-full inline-block border shadow-sm shrink-0 ${dayClasses.length > 1 ? 'text-[7px] sm:text-[9px]' : 'text-[8px] sm:text-[10px]'} text-slate-200`}>
+                                  {cls.room}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+    </>
+  );
+});
+TimetableGrid.displayName = 'TimetableGrid';
 
 const TimetableTab: React.FC<TimetableTabProps> = ({
   currentYear,
@@ -20,13 +129,71 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
   timetableData,
   setting,
   onTermChange,
-  onClassClick
+  onClassClick,
+  presets,
+  activePresetId,
+  onPresetChange,
+  onCreatePreset,
+  onDeletePreset,
+  timetableDataByPreset,
+  settingForPreset,
+  pageIndex,
+  onPageChange,
 }) => {
   const nativeGlassControls = usesNativeGlassControls();
   const displayDays = setting.showSaturday ? formatDays : formatDays.slice(0, 5);
   const periods = Array.from({ length: setting.periodCount }, (_, i) => i + 1);
   const todayIndex = new Date().getDay();
   const currentDayStr = formatDays[todayIndex - 1] || '';
+
+  const carouselRef = React.useRef<HTMLDivElement | null>(null);
+  const activeIndex = Math.max(0, presets.findIndex((p) => p.id === activePresetId));
+  const pageCount = presets.length + 1;
+
+  const userScrolling = React.useRef(false);
+  const scrollIdleTimer = React.useRef<number | null>(null);
+
+  const markUserScroll = () => {
+    userScrolling.current = true;
+    if (scrollIdleTimer.current) window.clearTimeout(scrollIdleTimer.current);
+    scrollIdleTimer.current = window.setTimeout(() => { userScrolling.current = false; }, 180);
+  };
+
+  const scrollToIndex = (index: number) => {
+    const el = carouselRef.current;
+    if (el) el.scrollTo({ left: index * el.clientWidth, behavior: 'smooth' });
+  };
+
+  // スクロール中に補正すると慣性が途切れるので、止まるまで待つ
+  useEffect(() => {
+    const el = carouselRef.current;
+    if (!el || userScrolling.current) return;
+    const target = activeIndex * el.clientWidth;
+    if (Math.abs(el.scrollLeft - target) > 4) el.scrollLeft = target;
+  }, [activeIndex, presets.length]);
+
+  useEffect(() => () => {
+    if (scrollIdleTimer.current) window.clearTimeout(scrollIdleTimer.current);
+  }, []);
+
+  useEffect(() => {
+    const onPage = (e: Event) => {
+      const i = (e as CustomEvent<number>).detail;
+      if (typeof i === 'number') scrollToIndex(i);
+    };
+    window.addEventListener('waritoNativePresetPage', onPage);
+    return () => window.removeEventListener('waritoNativePresetPage', onPage);
+  }, [presets.length]);
+
+  const handleCarouselScroll = () => {
+    const el = carouselRef.current;
+    if (!el || el.clientWidth === 0) return;
+    markUserScroll();
+    const index = Math.round(el.scrollLeft / el.clientWidth);
+    if (index !== pageIndex) onPageChange(index);
+    const preset = presets[index];
+    if (preset && preset.id !== activePresetId) onPresetChange(preset.id);
+  };
 
   const [isTermModalOpen, setIsTermModalOpen] = useState(false);
   const [isClosingTerm, setIsClosingTerm] = useState(false);
@@ -126,75 +293,85 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
 
   return (
     <div className="max-w-5xl mx-auto pb-32 animate-fade-in relative z-10 text-gray-200">
-      <div className="px-0.5 sm:px-1 mt-3 sm:mt-4">
-        <div className="flex gap-0.5 sm:gap-1.5 mb-1 sm:mb-1.5">
-          <div className="w-8 sm:w-14 flex-none invisible"></div>
-          {displayDays.map((day) => (
-            <div 
-              key={day} 
-              className={`flex-1 rounded-xl text-center py-1.5 sm:py-2.5 text-[9px] sm:text-[11px] font-bold tracking-wider ${day === currentDayStr ? 'bg-sky-400 text-[#0f172a]' : 'bg-[#1e293b] text-slate-300'}`}
-            >
-              {day}
-            </div>
-          ))}
+      {pageCount > 1 && (
+        <div className={`flex justify-center pt-3 ${nativeGlassControls ? 'invisible pointer-events-none' : ''}`}>
+          <div className="liquid-glass liquid-glass-control liquid-preset-dots rounded-full px-3.5 py-2 flex items-center gap-2">
+            {Array.from({ length: pageCount }).map((_, i) => {
+              const isAddPage = i === presets.length;
+              const active = i === pageIndex;
+              return (
+                <button
+                  key={isAddPage ? 'add' : presets[i].id}
+                  onClick={() => scrollToIndex(i)}
+                  aria-label={isAddPage ? '時間割を追加' : presets[i].name}
+                  className={`h-1.5 rounded-full transition-all ${
+                    active ? 'w-5 bg-sky-400' : isAddPage ? 'w-1.5 bg-white/15' : 'w-1.5 bg-white/30'
+                  }`}
+                />
+              );
+            })}
+          </div>
         </div>
+      )}
 
-        <div className="flex flex-col gap-0.5 sm:gap-1.5">
-          {periods.map(period => (
-            <div key={`period-${period}`} className="flex gap-0.5 sm:gap-1.5">
-              <div className={`w-8 sm:w-14 flex-none rounded-xl flex flex-col items-center justify-center p-0.5 sm:p-1.5 sticky left-0 z-10 h-full ${minHeightClass}`}>
-                {setting.periodTimes[period]?.start && (
-                  <span className="text-[8px] sm:text-[10px] text-slate-200 font-bold mb-0.5 tracking-tighter">{setting.periodTimes[period].start}</span>
-                )}
-                <span className="text-sky-400 text-xs sm:text-base font-black my-auto">{period}</span>
-                {setting.periodTimes[period]?.end && (
-                  <span className="text-[8px] sm:text-[10px] text-slate-200 font-bold mt-0.5 tracking-tighter">{setting.periodTimes[period].end}</span>
-                )}
-              </div>
+      <div
+        ref={carouselRef}
+        onScroll={handleCarouselScroll}
+        className="flex overflow-x-auto snap-x snap-mandatory overscroll-x-contain scrollbar-none"
+      >
+        {presets.map((preset) => (
+          <div key={preset.id} className="min-w-full shrink-0 snap-center">
+            <TimetableGrid
+              setting={settingForPreset(preset)}
+              timetableData={timetableDataByPreset[preset.id] || {}}
+              currentDayStr={currentDayStr}
+              onClassClick={onClassClick}
+              onEmptySlotClick={openSlotPicker}
+            />
+          </div>
+        ))}
 
-              {displayDays.map(day => {
-                const dayClasses = timetableData[day]?.[period] || [];
-                return (
-                  <div 
-                    key={`${day}-${period}`} 
-                    className={`flex-1 relative bg-[#06090D] rounded-xl ${minHeightClass} transition-colors hover:bg-gray-900/50 cursor-pointer overflow-hidden p-0 shadow-inner opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]`}
-                    style={{ animationDelay: `${(period - 1) * 50 + displayDays.indexOf(day) * 30}ms` }}
-                    onClick={() => {
-                      if (dayClasses.length === 0) {
-                        openSlotPicker(day, period);
-                      }
-                    }}
-                  >
-                    <div className="absolute inset-0 flex flex-col sm:flex-row h-full">
-                      {dayClasses.map((cls) => (
-                        <div 
-                          key={cls.id} 
-                          onClick={(e) => { e.stopPropagation(); onClassClick(cls); }} 
-                          className={`flex-1 h-full relative p-1 sm:p-2 transition-all duration-200 shadow-md ${cls.color} z-10 flex flex-col justify-center items-center text-center opacity-0 animate-[slideUp_0.4s_cubic-bezier(0.16,1,0.3,1)_forwards] class-card`}
-                          style={{ 
-                            animationDelay: `${(period - 1) * 50 + displayDays.indexOf(day) * 30 + 150}ms`
-                          }}
-                        >
-                          <div className="flex-1 w-full flex items-center justify-center px-1">
-                            <div className={`font-bold leading-tight drop-shadow-md ${dayClasses.length > 1 ? 'text-[8px] sm:text-[10px]' : 'text-[10px] sm:text-[13px]'}`} style={{ color: '#ffffff' }}>
-                              {cls.name}
-                            </div>
-                          </div>
-                          {cls.room && (
-                            <div className={`absolute bottom-1 left-1 right-1 flex justify-center pointer-events-none ${dayClasses.length > 1 ? 'hidden sm:flex' : 'flex'}`}>
-                              <div className={`${([cls.room, cls.class_format, cls.schedule].some(t => t && (t.includes('オンデマンド') || t.includes('オンデマ') || t.includes('ZOOM')))) ? 'bg-emerald-500/25 border-emerald-400/30' : 'bg-black/40 border-transparent'} px-1.5 sm:px-2 py-0.5 rounded-full inline-block border shadow-sm shrink-0 ${dayClasses.length > 1 ? 'text-[7px] sm:text-[9px]' : 'text-[8px] sm:text-[10px]'} text-slate-200`}>
-                                {cls.room}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
+        <div className="min-w-full shrink-0 snap-center px-4 pt-6">
+          <div className="rounded-3xl border border-dashed border-white/15 p-6 flex flex-col gap-3">
+            <div className="text-sm font-bold text-slate-200">時間割を追加</div>
+            <div className="text-[11px] text-slate-400 leading-relaxed">
+              {currentYear}年度 {currentSemester} の中に、別パターンの時間割を作れます。
             </div>
-          ))}
+            <button
+              onClick={() => onCreatePreset('empty')}
+              className="rounded-2xl bg-[#1e293b] px-4 py-3 text-xs font-bold text-slate-100 active:scale-95 transition-transform"
+            >
+              空の時間割を作る
+            </button>
+            <button
+              onClick={() => onCreatePreset('duplicate', activePresetId || undefined)}
+              className="rounded-2xl bg-sky-600 px-4 py-3 text-xs font-bold text-white active:scale-95 transition-transform disabled:opacity-40"
+              disabled={!activePresetId}
+            >
+              いま見ている時間割を複製
+            </button>
+          </div>
+
+          {presets.length > 1 && (
+            <div className="mt-5">
+              <div className="text-[11px] font-bold text-slate-400 mb-2 px-1">この学期の時間割</div>
+              <div className="rounded-2xl bg-[#111111] divide-y divide-white/5 overflow-hidden">
+                {presets.map((preset, i) => (
+                  <div key={preset.id} className="flex items-center justify-between px-4 py-3">
+                    <button onClick={() => scrollToIndex(i)} className="text-xs font-bold text-slate-100">
+                      {preset.name}
+                    </button>
+                    <button
+                      onClick={() => onDeletePreset(preset.id)}
+                      className="text-[11px] font-bold text-red-400/80 active:text-red-300"
+                    >
+                      削除
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

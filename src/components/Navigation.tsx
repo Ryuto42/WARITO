@@ -14,6 +14,9 @@ interface NavigationProps {
   setActiveTab: (tab: 'timetable' | 'grades' | 'account') => void;
   onAddClick: () => void;
   onSearchClick: () => void;
+  presetCount: number;
+  presetIndex: number;
+  onPresetSelect: (index: number) => void;
   currentYear: number;
   currentSemester: string;
   hidden?: boolean;
@@ -24,17 +27,18 @@ const Navigation: React.FC<NavigationProps> = ({
   setActiveTab,
   onAddClick,
   onSearchClick,
+  presetCount,
+  presetIndex,
+  onPresetSelect,
   currentYear,
   currentSemester,
   hidden = false,
 }) => {
-  // key を変えて伸縮アニメーションを毎回最初から再生させる
   const [morphKey, setMorphKey] = React.useState(0);
-  // iOS はネイティブ側でバーを描画する（OS の Liquid Glass を使うため）
   const native = usesNativeTabBar();
 
-  const latest = React.useRef({ setActiveTab, onAddClick, onSearchClick });
-  React.useEffect(() => { latest.current = { setActiveTab, onAddClick, onSearchClick }; });
+  const latest = React.useRef({ setActiveTab, onAddClick, onSearchClick, onPresetSelect });
+  React.useEffect(() => { latest.current = { setActiveTab, onAddClick, onSearchClick, onPresetSelect }; });
 
   React.useEffect(() => bindNativeTabBar({
     onTab: (tab) => latest.current.setActiveTab(tab),
@@ -44,12 +48,12 @@ const Navigation: React.FC<NavigationProps> = ({
   React.useEffect(() => bindNativeGlassControls({
     onSearch: () => latest.current.onSearchClick(),
     onAccount: () => latest.current.setActiveTab('account'),
-    // 学期モーダルの所有元（時間割タブ）へDOMイベントで橋渡しする
+    // 学期モーダルを持つ時間割タブへ橋渡し
     onTerm: () => window.dispatchEvent(new Event('waritoNativeTerm')),
+    onPresetSelect: (index) => latest.current.onPresetSelect(index),
   }), []);
 
-  // ネイティブバーは WebView より常に前面に出るため、モーダル表示中は隠す必要がある。
-  // 個々のモーダルを列挙する代わりに、共通の `fixed inset-0` オーバーレイを監視する。
+  // モーダルを列挙せず、共通の `fixed inset-0` オーバーレイで判定する
   const [overlayOpen, setOverlayOpen] = React.useState(false);
   React.useEffect(() => {
     if (!native) return;
@@ -70,8 +74,10 @@ const Navigation: React.FC<NavigationProps> = ({
       visible: !hidden && !overlayOpen,
       year: currentYear,
       semester: currentSemester,
+      presetCount,
+      presetIndex,
     });
-  }, [activeTab, currentYear, currentSemester, hidden, overlayOpen]);
+  }, [activeTab, currentYear, currentSemester, hidden, overlayOpen, presetCount, presetIndex]);
 
   React.useEffect(() => () => {
     syncNativeTabBar({ activeTab: 'timetable', visible: false });
@@ -80,6 +86,8 @@ const Navigation: React.FC<NavigationProps> = ({
       visible: false,
       year: 0,
       semester: '',
+      presetCount: 0,
+      presetIndex: 0,
     });
   }, []);
 

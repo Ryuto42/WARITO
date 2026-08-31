@@ -14,13 +14,8 @@ type GradeStatMatchOptions = {
 };
 
 // 3=科目コード一致, 2=科目名一致, 1=あいまい一致
-export type GradeStatMatchTier = 0 | 1 | 2 | 3;
-
-export type GradeStatMatch = {
-  stat: ClassGradeStat;
-  tier: GradeStatMatchTier;
-  score: number;
-};
+type Tier = 0 | 1 | 2 | 3;
+type Match = { stat: ClassGradeStat; tier: Tier; score: number };
 
 const getSemesterToken = (value: string | undefined) => {
   const normalized = normalizeMatchValue(value);
@@ -47,32 +42,20 @@ const stripSectionMarkers = (value: string) => (
     .replace(/\*+$/g, '')
 );
 
-export const normalizeSubjectCode = (value: string | undefined) => (
+const normalizeSubjectCode = (value: string | undefined) => (
   normalizeMatchValue(value).replace(/[^a-z0-9]/g, '')
 );
 
-export const buildCodeCandidates = (...values: Array<string | undefined>) => (
+const buildCodeCandidates = (...values: Array<string | undefined>) => (
   Array.from(new Set(values.map(normalizeSubjectCode).filter(Boolean)))
 );
 
-// 科目名の正規化キー。base=区分マーカーのみ除去 / core=副題の括弧も除去した弱いキー
+// base=区分マーカーのみ除去 / core=副題の括弧も除去した弱いキー
 const buildNameKeys = (value: string | undefined) => {
   const source = (value || '').normalize('NFKC');
   const base = normalizeMatchValue(stripSectionMarkers(source));
   const core = base.replace(/[(（][^)）]*[)）]/g, '').replace(/[()（）]/g, '');
   return { base, core: core.length >= 3 ? core : '' };
-};
-
-export const buildNameCandidates = (value: string | undefined) => {
-  const { base, core } = buildNameKeys(value);
-  return Array.from(new Set([base, core])).filter(Boolean);
-};
-
-export const subjectNameMatches = (left: string | undefined, right: string | undefined) => {
-  const a = buildNameKeys(left);
-  const b = buildNameKeys(right);
-  if (!a.base || !b.base) return false;
-  return a.base === b.base || (!!a.core && a.core === b.core);
 };
 
 const getInstructorBonus = (target: GradeStatMatchTarget, stat: ClassGradeStat) => {
@@ -84,11 +67,11 @@ const getInstructorBonus = (target: GradeStatMatchTarget, stat: ClassGradeStat) 
   return 0;
 };
 
-export const getGradeStatMatch = (
+const getGradeStatMatch = (
   target: GradeStatMatchTarget,
   stat: ClassGradeStat,
   options: GradeStatMatchOptions = {}
-): GradeStatMatch => {
+): Match => {
   const { allowLooseNameMatch = true } = options;
 
   const targetCodes = buildCodeCandidates(target.registration_code, target.subject_code);
@@ -97,7 +80,7 @@ export const getGradeStatMatch = (
   const statName = buildNameKeys(stat.subject_name);
   const instructorBonus = getInstructorBonus(target, stat);
 
-  let tier: GradeStatMatchTier = 0;
+  let tier: Tier = 0;
   let score = 0;
 
   // 科目コードは完全一致のみ採用（前方一致だと別科目を誤結合しうる）
@@ -131,17 +114,7 @@ export const getGradeStatMatch = (
   return { stat, tier, score };
 };
 
-export const getGradeStatMatchScore = (
-  target: GradeStatMatchTarget,
-  stat: ClassGradeStat,
-  options: GradeStatMatchOptions = {}
-) => getGradeStatMatch(target, stat, options).score;
-
-/**
- * 対象に紐づく成績統計を選び出す。
- * - 最も信頼度の高いtierだけを残す（コード一致があれば名前一致は捨てる）
- * - 年度/学期/科目コード単位で重複排除する
- */
+// 最上位 tier だけ残す（コード一致があれば名前一致は捨てる）
 export const selectGradeStatMatches = (
   target: GradeStatMatchTarget,
   stats: ClassGradeStat[],

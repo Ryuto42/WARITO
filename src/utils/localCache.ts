@@ -1,7 +1,7 @@
+// 静的import必須: async関数からCapacitorのプロキシをreturnすると thenable 判定で
+// `.then` がネイティブ呼び出しに転送され "Preferences.then() is not implemented" で reject する
 import { Preferences } from '@capacitor/preferences';
 import { isNative } from './native';
-
-// localStorage（同期・初回描画用）と Preferences（非同期・WebView再作成に耐える永続化）の二重保存
 
 export const CACHE_KEYS = {
   classes: 'waritoClassesCache',
@@ -9,15 +9,13 @@ export const CACHE_KEYS = {
   settings: 'waritoSettings',
   year: 'waritoCurrentYear',
   semester: 'waritoCurrentSemester',
+  presets: 'waritoPresetsCache',
+  activePresets: 'waritoActivePresets',
 } as const;
 
 export type CacheKey = (typeof CACHE_KEYS)[keyof typeof CACHE_KEYS];
 
 const memory = new Map<string, string>();
-
-// Preferences は静的importで受け取る: async関数からCapacitorのプロキシをreturnすると、
-// await時の thenable 判定で `.then` にアクセスされ、プロキシがそれをネイティブ呼び出しに
-// 転送して "Preferences.then() is not implemented" で必ず reject する。
 
 export const readCacheSync = <T,>(key: CacheKey): T | null => {
   let raw: string | null = null;
@@ -30,12 +28,11 @@ export const readCacheSync = <T,>(key: CacheKey): T | null => {
   try {
     return JSON.parse(raw) as T;
   } catch {
-    // 旧バージョンが年度・学期を生の文字列で保存していた名残
+    // 旧版は年度・学期を生文字列で保存していた
     return raw as unknown as T;
   }
 };
 
-// localStorageに無くPreferencesにあれば復元、逆はPreferencesへ書き戻す
 export const hydrateFromNativeStore = async (keys: CacheKey[] = Object.values(CACHE_KEYS)) => {
   if (!isNative()) return {} as Record<string, unknown>;
   const restored: Record<string, unknown> = {};
@@ -63,7 +60,6 @@ export const hydrateFromNativeStore = async (keys: CacheKey[] = Object.values(CA
   return restored;
 };
 
-// localStorageは同期、Preferencesは非同期で追従して書く
 export const writeCache = (key: CacheKey, value: unknown) => {
   const raw = JSON.stringify(value);
   memory.set(key, raw);
@@ -91,7 +87,7 @@ export const clearCache = (keys: CacheKey[] = Object.values(CACHE_KEYS)) => {
   }
 };
 
-// 行の並び順やキー順の違いで誤検知しないよう、id昇順・キーソート済みで比較するための正規化
+// 行順・キー順の違いで差分を誤検知しないための正規化
 const stableStringify = (value: unknown): string => {
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
   if (value && typeof value === 'object') {

@@ -19,6 +19,8 @@ export interface ClassInfo {
   subject_code?: string;
   memo?: string;
   class_schedules?: { day: string; period: number; room: string }[];
+  // アーカイブは学期共通の候補プールなので null
+  preset_id?: string | null;
 }
 
 export const ARCHIVE_DAY = 'Archive';
@@ -75,6 +77,17 @@ export interface TimetableTermSetting {
 }
 
 export type TimetableSettingsRecord = Record<string, TimetableTermSetting>;
+
+export interface TimetablePreset {
+  id: string;
+  user_id: string;
+  academic_year: number;
+  semester: string;
+  name: string;
+  sort_order: number;
+  settings?: TimetableTermSetting | null;
+  created_at?: string;
+}
 
 export const PRESET_COLORS = [
   { id: 'bg-[#1e293b] text-slate-200', display: 'bg-slate-600' },

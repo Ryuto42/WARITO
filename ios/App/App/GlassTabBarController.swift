@@ -2,12 +2,6 @@ import UIKit
 import WebKit
 import Capacitor
 
-/// WKWebView の上にネイティブのタブバーを重ね、iOS 26 の Liquid Glass を使う。
-/// CSS の backdrop-filter は近似でしかなく OS のガラス素材にならないため、
-/// ナビゲーション用ガラスコントロールはネイティブビューとして持ち上げている。
-///
-/// - ネイティブ → Web: evaluateJavaScript で window.__waritoNativeTab を呼ぶ
-/// - Web → ネイティブ: webkit.messageHandlers.waritoTabBar でタブ状態/表示可否を受け取る
 class GlassTabBarController: CAPBridgeViewController, WKScriptMessageHandler {
 
     private let barContainer = UIView()
@@ -18,6 +12,10 @@ class GlassTabBarController: CAPBridgeViewController, WKScriptMessageHandler {
     private var searchButton: UIButton!
     private var accountButton: UIButton!
     private var termButton: UIButton!
+    private var presetDotsView: UIVisualEffectView!
+    private var presetDotsStack: UIStackView!
+    private var presetCount = 0
+    private var presetIndex = 0
     private var glassControlsVisible = false
 
     private let tabs: [(key: String, title: String)] = [
@@ -56,7 +54,7 @@ class GlassTabBarController: CAPBridgeViewController, WKScriptMessageHandler {
     private func setupBar() {
         barContainer.translatesAutoresizingMaskIntoConstraints = false
         barContainer.isUserInteractionEnabled = true
-        barContainer.alpha = 0 // Web 側の表示指示を待つ
+        barContainer.alpha = 0
         view.addSubview(barContainer)
 
         NSLayoutConstraint.activate([
@@ -110,7 +108,6 @@ class GlassTabBarController: CAPBridgeViewController, WKScriptMessageHandler {
     private func setupPillContents() {
         let content = pillEffectView.contentView
 
-        // clear glass にすることで反射・ぼかし・移動時のモーフィングをOS側に描画させる
         selectionIndicator = makeGlassView(corner: (barHeight - inset * 2) / 2, clear: true)
         selectionIndicator.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(selectionIndicator)
@@ -173,9 +170,18 @@ class GlassTabBarController: CAPBridgeViewController, WKScriptMessageHandler {
         termButton = makeTermButton()
         termButton.addTarget(self, action: #selector(termTapped), for: .touchUpInside)
 
+        presetDotsView = makeGlassView(corner: 14)
+        presetDotsStack = UIStackView()
+        presetDotsStack.axis = .horizontal
+        presetDotsStack.alignment = .center
+        presetDotsStack.spacing = 8
+        presetDotsStack.translatesAutoresizingMaskIntoConstraints = false
+        presetDotsView.contentView.addSubview(presetDotsStack)
+
         view.addSubview(searchButton)
         view.addSubview(accountButton)
         view.addSubview(termButton)
+        view.addSubview(presetDotsView)
 
         NSLayoutConstraint.activate([
             searchButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: topControlInset),
@@ -191,11 +197,20 @@ class GlassTabBarController: CAPBridgeViewController, WKScriptMessageHandler {
             termButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             termButton.bottomAnchor.constraint(equalTo: barContainer.topAnchor, constant: -20),
             termButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 34),
+
+            presetDotsView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            presetDotsView.topAnchor.constraint(equalTo: searchButton.bottomAnchor, constant: 34),
+            presetDotsView.heightAnchor.constraint(equalToConstant: 28),
+
+            presetDotsStack.leadingAnchor.constraint(equalTo: presetDotsView.contentView.leadingAnchor, constant: 14),
+            presetDotsStack.trailingAnchor.constraint(equalTo: presetDotsView.contentView.trailingAnchor, constant: -14),
+            presetDotsStack.centerYAnchor.constraint(equalTo: presetDotsView.contentView.centerYAnchor),
         ])
 
         searchButton.alpha = 0
         accountButton.alpha = 0
         termButton.alpha = 0
+        presetDotsView.alpha = 0
         searchButton.isUserInteractionEnabled = false
         accountButton.isUserInteractionEnabled = false
         termButton.isUserInteractionEnabled = false
@@ -310,7 +325,6 @@ class GlassTabBarController: CAPBridgeViewController, WKScriptMessageHandler {
                            usingSpringWithDamping: 0.78, initialSpringVelocity: 0.4,
                            options: [.allowUserInteraction, .beginFromCurrentState], animations: apply)
 
-            // 移動中だけ伸縮させ、着地時は必ず等倍(identity)に戻す
             selectionIndicator.transform = .identity
             UIView.animateKeyframes(withDuration: 0.44, delay: 0,
                                     options: [.allowUserInteraction, .beginFromCurrentState], animations: {
@@ -395,11 +409,20 @@ class GlassTabBarController: CAPBridgeViewController, WKScriptMessageHandler {
             activeTab = tab
             updateSelection(animated: true)
             updateControlAppearance()
+            updatePresetDotsVisibility()
         }
         if let year = body["year"] as? Int,
            let semester = body["semester"] as? String {
             updateTermTitle(year: year, semester: semester)
         }
+        let newCount = body["presetCount"] as? Int ?? presetCount
+        let newIndex = body["presetIndex"] as? Int ?? presetIndex
+        if newCount != presetCount || newIndex != presetIndex {
+            presetCount = newCount
+            presetIndex = newIndex
+            rebuildPresetDots()
+        }
+        updatePresetDotsVisibility()
         if let visible = body["visible"] as? Bool {
             glassControlsVisible = visible
             let target: CGFloat = visible ? 1 : 0
@@ -407,11 +430,51 @@ class GlassTabBarController: CAPBridgeViewController, WKScriptMessageHandler {
                 self.searchButton.alpha = target
                 self.accountButton.alpha = target
                 self.updateTermVisibility()
+                self.updatePresetDotsVisibility()
             }
             searchButton.isUserInteractionEnabled = visible
             accountButton.isUserInteractionEnabled = visible
             termButton.isUserInteractionEnabled = visible && activeTab == "timetable"
         }
+    }
+
+    private func rebuildPresetDots() {
+        presetDotsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        let pageCount = presetCount + 1
+        guard presetCount >= 1 else { return }
+
+        for i in 0..<pageCount {
+            let dot = UIButton(type: .system)
+            dot.tag = i
+            dot.translatesAutoresizingMaskIntoConstraints = false
+            dot.addTarget(self, action: #selector(presetDotTapped(_:)), for: .touchUpInside)
+            let active = i == presetIndex
+            let isAddPage = i == presetCount
+            dot.backgroundColor = active
+                ? UIColor.systemBlue
+                : UIColor.label.withAlphaComponent(isAddPage ? 0.16 : 0.28)
+            dot.layer.cornerRadius = 3
+            NSLayoutConstraint.activate([
+                dot.heightAnchor.constraint(equalToConstant: 6),
+                dot.widthAnchor.constraint(equalToConstant: active ? 20 : 6),
+            ])
+            presetDotsStack.addArrangedSubview(dot)
+        }
+    }
+
+    @objc private func presetDotTapped(_ sender: UIButton) {
+        guard sender.tag != presetIndex else { return }
+        presetIndex = sender.tag
+        rebuildPresetDots()
+        UISelectionFeedbackGenerator().selectionChanged()
+        callJS("window.__waritoNativeGlassPreset && window.__waritoNativeGlassPreset(\(sender.tag))")
+    }
+
+    private func updatePresetDotsVisibility() {
+        guard presetDotsView != nil else { return }
+        let show = glassControlsVisible && activeTab == "timetable" && presetCount >= 1
+        presetDotsView.alpha = show ? 1 : 0
+        presetDotsView.isUserInteractionEnabled = show
     }
 
     private func updateTermVisibility() {
