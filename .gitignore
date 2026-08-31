@@ -58,3 +58,6 @@ google-services.json
 
 # Capacitor generated plugins
 android/capacitor-cordova-android-plugins/
+
+# Android release build outputs
+android/app/release/
