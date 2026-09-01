@@ -270,18 +270,36 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
   const availableClasses = useMemo(() => {
     if (!slotPicker) return [];
 
-    return classes
-      .filter((cls) => {
-        if (cls.academic_year !== currentYear || cls.semester !== currentSemester) {
-          return false;
-        }
+    const matched = classes.filter((cls) => {
+      if (cls.academic_year !== currentYear || cls.semester !== currentSemester) {
+        return false;
+      }
 
-        const schedules = cls.class_schedules && cls.class_schedules.length > 0
-          ? cls.class_schedules
-          : [{ day: cls.day, period: cls.period, room: cls.room }];
+      const schedules = cls.class_schedules && cls.class_schedules.length > 0
+        ? cls.class_schedules
+        : [{ day: cls.day, period: cls.period, room: cls.room }];
 
-        return schedules.some((schedule) => schedule.day === slotPicker.day && schedule.period === slotPicker.period);
-      })
+      return schedules.some((schedule) => schedule.day === slotPicker.day && schedule.period === slotPicker.period);
+    });
+
+    // 同一授業がアーカイブ/各プリセットに重複するため1件に統合する
+    const identity = (cls: ClassInfo) =>
+      cls.subject_code?.trim() ||
+      `${(cls.name || '').replace(/\s+/g, '')}|${(cls.instructor || '').replace(/\s+/g, '')}`;
+    const rank = (cls: ClassInfo) => {
+      if (activePresetId && cls.preset_id === activePresetId) return 0;
+      if (isArchivedClass(cls)) return 1;
+      return 2;
+    };
+
+    const unified = new Map<string, ClassInfo>();
+    for (const cls of matched) {
+      const key = identity(cls);
+      const current = unified.get(key);
+      if (!current || rank(cls) < rank(current)) unified.set(key, cls);
+    }
+
+    return [...unified.values()]
       .sort((a, b) => {
       const aCurrent = a.academic_year === currentYear && a.semester === currentSemester;
       const bCurrent = b.academic_year === currentYear && b.semester === currentSemester;
@@ -289,7 +307,7 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
       if (isArchivedClass(a) !== isArchivedClass(b)) return isArchivedClass(a) ? -1 : 1;
       return (b.updated_at || b.created_at || '').localeCompare(a.updated_at || a.created_at || '');
     });
-  }, [classes, currentSemester, currentYear, slotPicker]);
+  }, [activePresetId, classes, currentSemester, currentYear, slotPicker]);
 
   return (
     <div className="max-w-5xl mx-auto pb-32 animate-fade-in relative z-10 text-gray-200">
