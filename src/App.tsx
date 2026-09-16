@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { supabase, readPersistedSession } from './supabaseClient';
-import { ARCHIVE_DAY, PRESET_COLORS, defaultTimetableSetting, isArchivedClass } from './types';
+import { ARCHIVE_DAY, PRESET_COLORS, defaultTimetableSetting, isArchivedClass, classIdentity } from './types';
 import type { ClassInfo, TimetableTermSetting, TimetableSettingsRecord, GradeInfo, TimetablePreset } from './types';
 import TimetableTab from './components/TimetableTab';
 import AccountTab from './components/AccountTab';
@@ -669,6 +669,30 @@ const App = () => {
     stopProcessing();
   };
 
+  const selectedClassPresetIds = useMemo(() => {
+    if (!selectedClass) return [];
+    const key = classIdentity(selectedClass);
+    return classes
+      .filter((c) => c.preset_id && classIdentity(c) === key)
+      .map((c) => c.preset_id as string);
+  }, [classes, selectedClass]);
+
+  const handleAddToPreset = async (cls: ClassInfo, presetId: string) => {
+    setIsProcessing(true);
+    const first = cls.class_schedules?.[0];
+    const source = isArchivedClass(cls)
+      ? { ...cls, day: first?.day || 'Mon', period: first?.period || 1, room: first?.room || cls.room || '' }
+      : cls;
+    const ok = await copyClassesToPreset(session.user.id, [source], presetId);
+    if (ok) {
+      fetchClasses(session.user.id, true);
+      closeDetailModalWithAnim();
+    } else {
+      showAppAlert('追加時にエラーが発生しました');
+    }
+    stopProcessing();
+  };
+
   const handleDeleteClass = async (id: string) => {
     const { error } = await supabase.from('classes').delete().eq('id', id).eq('user_id', session.user.id);
     if (!error) {
@@ -681,6 +705,16 @@ const App = () => {
     } else {
       console.error(error);
     }
+  };
+
+  const [slotRequest, setSlotRequest] = useState<{ day: string; period: number; token: number } | null>(null);
+
+  const handleAddToSlot = (cls: ClassInfo) => {
+    const first = cls.class_schedules?.[0];
+    const day = (isArchivedClass(cls) ? first?.day : cls.day) || first?.day || 'Mon';
+    const period = (isArchivedClass(cls) ? first?.period : cls.period) || first?.period || 1;
+    closeDetailModalWithAnim();
+    setSlotRequest({ day, period, token: Date.now() });
   };
 
   const closeDetailModalWithAnim = () => {
@@ -1062,6 +1096,7 @@ const App = () => {
             settingForPreset={settingForPreset}
             pageIndex={Math.min(presetPageIndex, termPresets.length)}
             onPageChange={setPresetPageIndex}
+            slotRequest={slotRequest}
           />
         )}
 
@@ -1106,13 +1141,10 @@ const App = () => {
           onClose={closeDetailModalWithAnim}
           onSave={handleSaveClass}
           onArchive={(cls) => handleSaveClass({ id: cls.id, class_schedules: cls.class_schedules, room: cls.room }, { archive: true })}
-          onRegisterToTimetable={(cls) => handleSaveClass({
-            id: cls.id,
-            day: cls.class_schedules?.[0]?.day || 'Mon',
-            period: cls.class_schedules?.[0]?.period || 1,
-            room: cls.class_schedules?.[0]?.room || cls.room || '',
-            class_schedules: cls.class_schedules
-          })}
+          onAddToPreset={handleAddToPreset}
+          registeredPresetIds={selectedClassPresetIds}
+          onAddToSlot={handleAddToSlot}
+          activePresetId={activePresetId}
           onDelete={handleDeleteClass}
         />
 

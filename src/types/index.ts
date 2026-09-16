@@ -27,6 +27,11 @@ export const ARCHIVE_DAY = 'Archive';
 
 export const isArchivedClass = (cls: Pick<ClassInfo, 'day'>) => cls.day === ARCHIVE_DAY;
 
+// アーカイブ/各プリセットに散る同一授業を1つとみなすキー
+export const classIdentity = (cls: Pick<ClassInfo, 'subject_code' | 'name' | 'instructor'>) =>
+  cls.subject_code?.trim() ||
+  `${(cls.name || '').replace(/\s+/g, '')}|${(cls.instructor || '').replace(/\s+/g, '')}`;
+
 export interface GradeInfo {
   id: string;
   user_id: string;

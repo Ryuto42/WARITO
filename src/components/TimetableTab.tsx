@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { dayMap, formatDays, isArchivedClass } from '../types';
+import { dayMap, formatDays, isArchivedClass, classIdentity } from '../types';
 import type { ClassInfo, TimetableTermSetting, TimetablePreset } from '../types';
 import { usesNativeGlassControls } from '../utils/native';
 
@@ -20,6 +20,7 @@ interface TimetableTabProps {
   settingForPreset: (preset: TimetablePreset | null) => TimetableTermSetting;
   pageIndex: number;
   onPageChange: (index: number) => void;
+  slotRequest: { day: string; period: number; token: number } | null;
 }
 
 interface TimetableGridProps {
@@ -139,6 +140,7 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
   settingForPreset,
   pageIndex,
   onPageChange,
+  slotRequest,
 }) => {
   const nativeGlassControls = usesNativeGlassControls();
   const displayDays = setting.showSaturday ? formatDays : formatDays.slice(0, 5);
@@ -267,6 +269,10 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
     }, 200);
   };
 
+  useEffect(() => {
+    if (slotRequest) setSlotPicker({ day: slotRequest.day, period: slotRequest.period });
+  }, [slotRequest]);
+
   const availableClasses = useMemo(() => {
     if (!slotPicker) return [];
 
@@ -283,9 +289,6 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
     });
 
     // 同一授業がアーカイブ/各プリセットに重複するため1件に統合する
-    const identity = (cls: ClassInfo) =>
-      cls.subject_code?.trim() ||
-      `${(cls.name || '').replace(/\s+/g, '')}|${(cls.instructor || '').replace(/\s+/g, '')}`;
     const rank = (cls: ClassInfo) => {
       if (activePresetId && cls.preset_id === activePresetId) return 0;
       if (isArchivedClass(cls)) return 1;
@@ -294,7 +297,7 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
 
     const unified = new Map<string, ClassInfo>();
     for (const cls of matched) {
-      const key = identity(cls);
+      const key = classIdentity(cls);
       const current = unified.get(key);
       if (!current || rank(cls) < rank(current)) unified.set(key, cls);
     }
@@ -509,7 +512,7 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
 
             <div className="p-3 sm:p-4 overflow-y-auto custom-scrollbar max-h-[65vh] space-y-2">
               {availableClasses.map((cls) => {
-                const sameTerm = cls.academic_year === currentYear && cls.semester === currentSemester;
+                const inPreset = !!activePresetId && cls.preset_id === activePresetId;
                 return (
                   <button
                     key={cls.id}
@@ -530,8 +533,8 @@ const TimetableTab: React.FC<TimetableTabProps> = ({
                         </div>
                       </div>
                       <div className="shrink-0 flex flex-col items-end gap-1">
-                        <span className={`text-[10px] font-bold uppercase tracking-widest ${isArchivedClass(cls) ? 'text-amber-400' : sameTerm ? 'text-sky-400' : 'text-slate-500'}`}>
-                          {isArchivedClass(cls) ? 'Archive' : sameTerm ? 'Current' : 'Saved'}
+                        <span className={`text-[10px] font-bold uppercase tracking-widest ${inPreset ? 'text-sky-400' : 'text-amber-400'}`}>
+                          {inPreset ? 'Current' : 'Archive'}
                         </span>
                         {!!cls.room && <span className="text-[10px] text-slate-500">{cls.room}</span>}
                       </div>

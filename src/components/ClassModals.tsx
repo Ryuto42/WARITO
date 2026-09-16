@@ -454,12 +454,15 @@ interface ClassDetailModalProps {
   isClosing: boolean;
   onClose: () => void;
   onSave: (payload: Partial<ClassInfo>, options?: { archive?: boolean }) => void;
-  onRegisterToTimetable: (cls: ClassInfo) => void;
   onArchive: (cls: ClassInfo) => void;
+  onAddToPreset: (cls: ClassInfo, presetId: string) => void;
+  registeredPresetIds: string[];
+  onAddToSlot: (cls: ClassInfo) => void;
+  activePresetId: string | null;
   onDelete: (id: string) => void;
 }
 
-export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosing, onClose, onSave, onRegisterToTimetable, onArchive, onDelete }) => {
+export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosing, onClose, onSave, onArchive, onAddToPreset, registeredPresetIds, activePresetId, onAddToSlot, onDelete }) => {
   const [editMode, setEditMode] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
@@ -536,6 +539,7 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
 
   if (!cls) return null;
   const archived = isArchivedClass(cls);
+  const inActivePreset = !!activePresetId && registeredPresetIds.includes(activePresetId);
 
   const handleSaveClick = () => {
     onSave({
@@ -597,6 +601,17 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
             </button>
+            {inActivePreset && (
+              <button
+                onClick={() => onAddToSlot(cls)}
+                className="p-2 bg-sky-500/15 hover:bg-sky-500/25 border border-sky-400/30 text-sky-300 rounded-lg shadow-lg transition-all active:scale-95"
+                title="この時間に別の授業を追加"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v14M5 12h14" />
+                </svg>
+              </button>
+            )}
             {!archived && (
               <button
                 onClick={() => onArchive(cls)}
@@ -810,13 +825,13 @@ export const ClassDetailModal: React.FC<ClassDetailModalProps> = ({ cls, isClosi
               </div>
             )}
 
-            {archived && (
+            {!inActivePreset && !!activePresetId && (
               <div className="mt-8 pt-6 border-t border-white/5">
                 <button
-                  onClick={() => onRegisterToTimetable(cls)}
+                  onClick={() => onAddToPreset(cls, activePresetId)}
                   className="w-full py-3.5 bg-sky-500 hover:bg-sky-400 text-slate-900 rounded-xl font-bold transition-all active:scale-95 shadow-lg shadow-sky-500/20"
                 >
-                  時間割に登録
+                  この時間割に追加
                 </button>
               </div>
             )}
