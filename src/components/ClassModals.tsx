@@ -342,7 +342,7 @@ export const ClassAddModal: React.FC<ClassAddModalProps> = ({ isOpen, isClosing,
     <>
     <CustomAlert isOpen={alertState.isOpen} isClosing={alertState.isClosing} message={alertState.msg} onClose={closeAlert} />
     <div className={`fixed inset-0 bg-black/70 flex items-center justify-center z-[1000] p-4 backdrop-blur-sm ${isClosing ? 'animate-fade-out-overlay' : 'animate-fade-in-overlay'}`}>
-      <div className={`bg-[#0f172a] border border-[#1e293b] rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto ${isClosing ? 'animate-slide-down' : 'animate-slide-up'}`}>
+      <div className={`bg-[#0f172a] border border-[#1e293b] rounded-2xl p-6 w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto ${isClosing ? 'animate-slide-down' : 'animate-slide-up'}`}>
         <h2 className="text-xl sm:text-2xl font-bold mb-6 text-white text-center tracking-wider">授業を追加</h2>
         <div className="space-y-4">
           <div>
@@ -437,9 +437,9 @@ export const ClassAddModal: React.FC<ClassAddModalProps> = ({ isOpen, isClosing,
             </div>
           </div>
           <div className="pt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <button onClick={onClose} className="py-3 bg-[#1e293b] hover:bg-[#334155] text-slate-300 rounded-xl font-bold transition-all active:scale-95 border border-[#1e293b]">キャンセル</button>
-            <button onClick={handleArchiveClick} className="py-3 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/30 text-amber-300 rounded-xl font-bold transition-all active:scale-95">アーカイブに追加</button>
-            <button onClick={handleSaveClick} className="py-3 bg-sky-500 hover:bg-sky-400 text-slate-900 rounded-xl font-bold transition-all active:scale-95 shadow-lg shadow-sky-500/20">時間割に保存</button>
+            <button onClick={onClose} className="py-3 bg-[#1e293b] hover:bg-[#334155] text-slate-300 rounded-xl font-bold transition-all active:scale-95 border border-[#1e293b] text-sm">キャンセル</button>
+            <button onClick={handleArchiveClick} className="py-3 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/30 text-amber-300 rounded-xl font-bold transition-all active:scale-95 text-sm">アーカイブに追加</button>
+            <button onClick={handleSaveClick} className="py-3 bg-sky-500 hover:bg-sky-400 text-slate-900 rounded-xl font-bold transition-all active:scale-95 shadow-lg shadow-sky-500/20 text-sm">時間割に保存</button>
           </div>
         </div>
       </div>
