@@ -240,7 +240,7 @@ html.theme-light .bg-black\/60 {
 @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
   .liquid-glass {
     -webkit-backdrop-filter: blur(12px) saturate(165%) brightness(0.97);
-    backdrop-filter: blur(12px) saturate(165%) brightness(0.97);
+    backdrop-filter: var(--lg-refract,) blur(calc(12px * var(--lg-blur-k, 1))) saturate(165%) brightness(0.97);
   }
 }
 
@@ -292,7 +292,7 @@ html.theme-light .bg-black\/60 {
   mask-composite: exclude;
   filter: blur(0.45px);
   pointer-events: none;
-  opacity: 0.48;
+  opacity: 0.22;
   z-index: 1;
 }
 
@@ -351,7 +351,7 @@ html.theme-light .liquid-glass {
 @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
   html.theme-light .liquid-glass {
     -webkit-backdrop-filter: blur(12px) saturate(165%) brightness(1.12);
-    backdrop-filter: blur(12px) saturate(165%) brightness(1.12);
+    backdrop-filter: var(--lg-refract,) blur(calc(12px * var(--lg-blur-k, 1))) saturate(165%) brightness(1.12);
   }
 }
 html.theme-light .liquid-glass::before {
@@ -453,7 +453,7 @@ html.theme-light .liquid-capsule {
     inset 0 -5px 14px rgba(8, 18, 38, 0.045),
     inset 0 0 0 0.5px rgba(255, 255, 255, 0.018);
   -webkit-backdrop-filter: blur(5px) saturate(125%) brightness(0.97);
-  backdrop-filter: blur(5px) saturate(125%) brightness(0.97);
+  backdrop-filter: var(--lg-refract,) blur(calc(5px * var(--lg-blur-k, 1))) saturate(125%) brightness(0.97);
   transition:
     transform 0.42s cubic-bezier(0.33, 1.12, 0.35, 1),
     opacity 0.28s ease,
@@ -472,7 +472,7 @@ html.theme-light .liquid-capsule {
     rgba(255, 255, 255, 0.2) 100%
   );
   filter: blur(0.65px);
-  opacity: 0.36;
+  opacity: 0.18;
 }
 
 .liquid-tabbar-pill::after {
@@ -490,7 +490,7 @@ html.theme-light .liquid-tabbar-pill {
     inset 0 -5px 14px rgba(15, 23, 42, 0.025),
     inset 0 0 0 0.5px rgba(255, 255, 255, 0.02);
   -webkit-backdrop-filter: blur(5px) saturate(125%) brightness(1.08);
-  backdrop-filter: blur(5px) saturate(125%) brightness(1.08);
+  backdrop-filter: var(--lg-refract,) blur(calc(5px * var(--lg-blur-k, 1))) saturate(125%) brightness(1.08);
 }
 
 html.theme-light .liquid-tabbar-pill::before {

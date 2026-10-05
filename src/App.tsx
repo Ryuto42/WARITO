@@ -21,6 +21,7 @@ import {
   clearCache,
   hydrateFromNativeStore,
 } from './utils/localCache';
+import { initLiquidRefraction } from './utils/liquidRefraction';
 import { initNativeShell, isNative, notifyHaptic, usesNativeGlassControls } from './utils/native';
 import { applyTheme, resolveTheme, watchSystemTheme } from './utils/theme';
 import {
@@ -217,6 +218,8 @@ const App = () => {
     applyTheme(resolveTheme());
     return watchSystemTheme(() => {});
   }, []);
+
+  useEffect(() => initLiquidRefraction(), []);
 
   useEffect(() => {
     initNativeShell();
