@@ -31,57 +31,11 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <Script id="theme-script" strategy="beforeInteractive">
-          {`
-            var saved = localStorage.getItem('waritoTheme');
-            var light = saved === 'light' ||
-              ((!saved || saved === 'system') &&
-                window.matchMedia('(prefers-color-scheme: light)').matches);
-            if (light) document.documentElement.classList.add('theme-light');
-            document.documentElement.style.colorScheme = light ? 'light' : 'dark';
-          `}
-        </Script>
+        <Script id="theme-script" src="/theme-init.js" strategy="beforeInteractive" />
       </head>
       <body>
         <div id="root">{children}</div>
-        <Script id="sw-script" strategy="afterInteractive">
-          {`
-            // ネイティブ(Capacitor)では SW 未使用: controllerchange が起動直後のリロードループを起こすため
-            var isNativeShell = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-            if (isNativeShell) {
-              if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.getRegistrations().then(function (rs) {
-                  rs.forEach(function (r) { r.unregister(); });
-                }).catch(function () {});
-              }
-            } else if ('serviceWorker' in navigator) {
-              let refreshing = false;
-              navigator.serviceWorker.addEventListener('controllerchange', () => {
-                if (!refreshing) {
-                  window.location.reload();
-                  refreshing = true;
-                }
-              });
-
-              window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js').then(reg => {
-                  reg.addEventListener('updatefound', () => {
-                    const newWorker = reg.installing;
-                    newWorker.addEventListener('statechange', () => {
-                      if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                        newWorker.postMessage({ type: 'SKIP_WAITING' });
-                      }
-                    });
-                  });
-
-                  setInterval(() => {
-                    reg.update();
-                  }, 60 * 60 * 1000);
-                });
-              });
-            }
-          `}
-        </Script>
+        <Script id="sw-script" src="/sw-register.js" strategy="afterInteractive" />
       </body>
     </html>
   )

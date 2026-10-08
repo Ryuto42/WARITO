@@ -83,14 +83,22 @@ export const copyClassesToPreset = async (
   return true;
 };
 
-export const updatePresetSettings = async (presetId: string, settings: TimetableTermSetting) => {
-  const { error } = await supabase.from('timetable_presets').update({ settings }).eq('id', presetId);
+export const updatePresetSettings = async (userId: string, presetId: string, settings: TimetableTermSetting) => {
+  const { error } = await supabase
+    .from('timetable_presets')
+    .update({ settings })
+    .eq('id', presetId)
+    .eq('user_id', userId);
   if (error) console.error(error);
   return !error;
 };
 
-export const deletePreset = async (presetId: string) => {
-  const { error } = await supabase.from('timetable_presets').delete().eq('id', presetId);
+export const deletePreset = async (userId: string, presetId: string) => {
+  const { error } = await supabase
+    .from('timetable_presets')
+    .delete()
+    .eq('id', presetId)
+    .eq('user_id', userId);
   if (error) console.error(error);
   return !error;
 };

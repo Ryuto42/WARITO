@@ -35,6 +35,12 @@ import {
 
 const MAX_SHARE_PARAM_LENGTH = 12_000;
 const MAX_SHARE_CLASSES = 200;
+const MIN_PASSWORD_LENGTH = 12;
+const SHARE_IMPORT_FIELDS = [
+  'name', 'day', 'period', 'room', 'color', 'class_format', 'credits',
+  'evaluation', 'schedule', 'faculty_dept', 'instructor', 'semester',
+  'academic_year', 'memo', 'class_schedules',
+] as const;
 
 const clampNumber = (value: unknown, min: number, max: number, fallback: number) => {
   const num = typeof value === 'number' ? value : Number(value);
@@ -79,6 +85,22 @@ const normalizeImportedClass = (raw: any): Partial<ClassInfo> => {
     class_schedules: normalizedSchedules.length > 0 ? normalizedSchedules : undefined,
   };
 };
+
+// 旧形式 ?share= の { year, semester, classes } を v2 の短縮キーに変換する
+const legacyShareToCompact = (parsed: any) => ({
+  y: parsed?.year,
+  sm: parsed?.semester,
+  cs: Array.isArray(parsed?.classes)
+    ? parsed.classes.map((c: any) => ({
+        n: c?.name, d: c?.day, p: c?.period, r: c?.room, c: c?.color,
+        y: c?.academic_year, sm: c?.semester, f: c?.faculty_dept, i: c?.instructor,
+        cf: c?.class_format, cr: c?.credits, e: c?.evaluation, s: c?.schedule, m: c?.memo,
+        ss: Array.isArray(c?.class_schedules)
+          ? c.class_schedules.map((s: any) => ({ d: s?.day, p: s?.period, r: s?.room }))
+          : undefined,
+      }))
+    : [],
+});
 
 const App = () => {
   const nativeGlassControls = usesNativeGlassControls();
@@ -332,10 +354,10 @@ const App = () => {
         const decompressed = pako.inflate(binary, { to: 'string' });
         const parsed = JSON.parse(decompressed);
 
-        if (parsed.v === 2 || parsed.cs) {
+        if (parsed?.v === 2 || parsed?.cs) {
           setShareImportData(expandData(parsed));
         } else {
-          setShareImportData(parsed);
+          setShareImportData(expandData(legacyShareToCompact(parsed)));
         }
       } catch (e) {
         console.error('Failed to decode share data', e);
@@ -374,7 +396,7 @@ const App = () => {
 
     if (activePresetId) {
       setPresets(prev => prev.map(p => (p.id === activePresetId ? { ...p, settings: setting } : p)));
-      updatePresetSettings(activePresetId, setting);
+      if (session) updatePresetSettings(session.user.id, activePresetId, setting);
     }
   };
 
@@ -426,8 +448,8 @@ const App = () => {
     setAuthLoading(true);
     setIsProcessing(true);
 
-    if (password.length < 6) {
-      setAuthError('パスワードは6文字以上で入力してください');
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setAuthError(`パスワードは${MIN_PASSWORD_LENGTH}文字以上で入力してください`);
       setAuthLoading(false);
       setIsProcessing(false);
       return;
@@ -551,7 +573,7 @@ const App = () => {
   const handleDeletePreset = async (presetId: string) => {
     if (!session || termPresets.length <= 1) return;
     setIsProcessing(true);
-    const ok = await deletePreset(presetId);
+    const ok = await deletePreset(session.user.id, presetId);
     if (ok) {
       setPresets(prev => prev.filter(p => p.id !== presetId));
       await fetchClasses(session.user.id, true);
@@ -830,8 +852,10 @@ const App = () => {
     const items = shareImportData.classes || [];
     let imported = 0;
     for (const item of items) {
-      const { id, user_id, created_at, ...rest } = item;
-      
+      const rest = Object.fromEntries(
+        SHARE_IMPORT_FIELDS.filter((f) => item?.[f] !== undefined).map((f) => [f, item[f]])
+      ) as Partial<ClassInfo>;
+
       const existing = classes.find(c => 
         c.name === rest.name && 
         c.academic_year === rest.academic_year && 
@@ -953,18 +977,18 @@ const App = () => {
                 <label className="block text-xs text-slate-400 mb-1.5 ml-1">パスワード</label>
                 <input
                   type="password"
-                  placeholder={authMode === 'signup' ? '6文字以上で入力' : 'パスワードを入力'}
+                  placeholder={authMode === 'signup' ? `${MIN_PASSWORD_LENGTH}文字以上で入力` : 'パスワードを入力'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full p-3.5 bg-[#1e293b]/50 border border-[#1e293b] rounded-xl focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30 text-base transition-all placeholder:text-slate-600 appearance-none"
                   required
                   disabled={authLoading}
-                  minLength={authMode === 'signup' ? 6 : undefined}
+                  minLength={authMode === 'signup' ? MIN_PASSWORD_LENGTH : undefined}
                 />
               </div>
 
               <p className={`text-[11px] mb-4 ml-1 ${authMode === 'signup' ? 'text-slate-500' : 'text-transparent select-none'}`}>
-                パスワードは6文字以上で設定してください
+                パスワードは{MIN_PASSWORD_LENGTH}文字以上で設定してください
               </p>
 
               <button

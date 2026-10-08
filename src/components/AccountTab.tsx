@@ -40,9 +40,7 @@ const AccountTab: React.FC<AccountTabProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState('');
 
-  const isAdmin = 
-    session?.user?.user_metadata?.role === 'admin' || 
-    session?.user?.app_metadata?.role === 'admin';
+  const isAdmin = session?.user?.app_metadata?.role === 'admin';
 
   const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -289,7 +287,6 @@ const AccountTab: React.FC<AccountTabProps> = ({
               if (c.credits) obj.cr = c.credits;
               if (c.evaluation) obj.e = c.evaluation;
               if (c.schedule) obj.s = c.schedule;
-              if (c.memo) obj.m = c.memo;
               if (c.class_schedules && c.class_schedules.length > 0) {
                 obj.ss = c.class_schedules.map(s => ({
                   d: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(s.day),

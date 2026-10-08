@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && node scripts/inject-csp.mjs",
     "start": "next start",
     "lint": "next lint",
     "mcp:supabase": "node ./mcp/supabase-server.mjs",
@@ -18,25 +18,24 @@
     "assets": "npx capacitor-assets generate --iconBackgroundColor '#050811' --iconBackgroundColorDark '#050811' --splashBackgroundColor '#050811' --splashBackgroundColorDark '#050811' && mkdir -p public/icons && mv -f icons/*.webp public/icons/ && rmdir icons"
   },
   "dependencies": {
-    "@capacitor/android": "^8.5.0",
+    "@capacitor/android": "^8.5.2",
     "@capacitor/app": "^8.1.0",
-    "@capacitor/core": "^8.4.1",
+    "@capacitor/core": "^8.5.2",
     "@capacitor/haptics": "^8.0.2",
-    "@capacitor/ios": "^8.5.0",
+    "@capacitor/ios": "^8.5.2",
     "@capacitor/keyboard": "^8.0.5",
     "@capacitor/preferences": "^8.0.1",
     "@capacitor/splash-screen": "^8.0.2",
     "@capacitor/status-bar": "^8.0.3",
     "@supabase/supabase-js": "^2.100.1",
-    "next": "^16.2.2",
+    "next": "^16.4.0",
     "pako": "^2.1.0",
     "papaparse": "^5.5.3",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },
   "devDependencies": {
-    "@capacitor/assets": "^3.0.5",
-    "@capacitor/cli": "^8.5.0",
+    "@capacitor/cli": "^8.5.2",
     "@eslint/js": "^9.39.4",
     "@types/node": "^24.12.0",
     "@types/pako": "^2.0.4",
@@ -47,9 +46,14 @@
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",
     "globals": "^17.4.0",
-    "postcss": "^8.5.8",
+    "postcss": "^8.5.29",
     "tailwindcss": "^3.4.19",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.57.0"
+  },
+  "overrides": {
+    "xcode": {
+      "uuid": "^11.1.1"
+    }
   }
 }
